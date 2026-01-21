@@ -4,7 +4,7 @@
  */
 
 import type { Plugin } from "@opencode-ai/plugin"
-import { authHooks, commandHooks, sessionHooks } from "./hooks"
+import { commandHooks, sessionHooks } from "./hooks"
 import { createUsageState } from "./state"
 import { usageTool } from "./tools"
 
@@ -12,7 +12,6 @@ export const UsagePlugin: Plugin = async ({ client }) => {
   const state = createUsageState()
 
   return {
-    ...authHooks(),
     ...commandHooks({ client, state }),
     ...sessionHooks(state),
     tool: {
@@ -20,3 +19,5 @@ export const UsagePlugin: Plugin = async ({ client }) => {
     },
   }
 }
+
+export default UsagePlugin

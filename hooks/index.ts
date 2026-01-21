@@ -5,4 +5,3 @@
 
 export { commandHooks } from "./command"
 export { sessionHooks } from "./session"
-export { authHooks } from "./auth"

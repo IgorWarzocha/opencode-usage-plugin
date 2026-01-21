@@ -6,7 +6,7 @@
 import z from "zod"
 import type { UsageSnapshot } from "../types"
 import { providers } from "../providers"
-import { getAuthFilePath, readUsageToken } from "../utils"
+import { getAuthFilePath } from "../utils"
 import type { AuthRecord } from "./registry"
 import { resolveProviderAuths } from "./registry"
 
@@ -24,8 +24,7 @@ const authRecordSchema = z.record(z.string(), authEntrySchema)
 
 export async function fetchUsageSnapshots(): Promise<UsageSnapshot[]> {
   const auths = await loadAuths()
-  const usageToken = await readUsageToken()
-  const entries = resolveProviderAuths(auths, usageToken)
+  const entries = resolveProviderAuths(auths, null)
   const snapshots: UsageSnapshot[] = []
   const fetches = entries.map(async (entry) => {
     const provider = providers[entry.providerID]
@@ -37,6 +36,8 @@ export async function fetchUsageSnapshots(): Promise<UsageSnapshot[]> {
   await Promise.race([Promise.all(fetches), timeout(5000)])
   return snapshots
 }
+
+
 
 async function loadAuths(): Promise<AuthRecord> {
   const authPath = getAuthFilePath()
