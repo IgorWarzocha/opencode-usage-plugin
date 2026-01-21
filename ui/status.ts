@@ -42,7 +42,7 @@ function formatBar(remainingPercent: number): string {
   const size = 15
   const filled = Math.round((clamped / 100) * size)
   const empty = size - filled
-  return `\`${"█".repeat(filled)}${"░".repeat(empty)}\``
+  return `${"█".repeat(filled)}${"░".repeat(empty)}`
 }
 
 function formatPlanType(planType: string): string {
@@ -81,7 +81,7 @@ function formatProxySnapshot(snapshot: UsageSnapshot): string[] {
   const proxy = snapshot.proxyQuota
   if (!proxy) return ["→ [proxy] No data"]
 
-  const lines: string[] = ["[Google] Mirrowel Proxy"]
+  const lines: string[] = ["→ [Google] Mirrowel Proxy"]
 
   for (const provider of proxy.providers) {
     lines.push("")
@@ -93,7 +93,8 @@ function formatProxySnapshot(snapshot: UsageSnapshot): string[] {
 
       for (const group of tierInfo.quotaGroups) {
         const resetSuffix = group.resetTime ? formatResetSuffixISO(group.resetTime) : ""
-        lines.push(`      ${group.name}: ${formatBar(group.remainingPct)} ${group.remaining}/${group.max}${resetSuffix}`)
+        const label = `${group.name}:`.padEnd(9)
+        lines.push(`      ${label} ${formatBar(group.remainingPct)} ${group.remaining}/${group.max}${resetSuffix}`)
       }
     }
   }
@@ -113,26 +114,29 @@ function formatSnapshot(snapshot: UsageSnapshot): string[] {
   const primary = snapshot.primary
   if (primary) {
     const remainingPct = 100 - primary.usedPercent
+    const label = "Hourly:".padEnd(13)
     lines.push(
-      `  Hourly:       ${formatBar(remainingPct)} ${remainingPct.toFixed(0)}% left${formatResetSuffix(primary.resetsAt)}`,
+      `  ${label} ${formatBar(remainingPct)} ${remainingPct.toFixed(0)}% left${formatResetSuffix(primary.resetsAt)}`,
     )
   }
   const secondary = snapshot.secondary
   if (secondary) {
     const remainingPct = 100 - secondary.usedPercent
+    const label = "Weekly:".padEnd(13)
     lines.push(
-      `  Weekly:       ${formatBar(remainingPct)} ${remainingPct.toFixed(0)}% left${formatResetSuffix(secondary.resetsAt)}`,
+      `  ${label} ${formatBar(remainingPct)} ${remainingPct.toFixed(0)}% left${formatResetSuffix(secondary.resetsAt)}`,
     )
   }
   const codeReview = snapshot.codeReview
   if (codeReview) {
     const remainingPct = 100 - codeReview.usedPercent
+    const label = "Code Review:".padEnd(13)
     lines.push(
-      `  Code Review:  ${formatBar(remainingPct)} ${remainingPct.toFixed(0)}% left${formatResetSuffix(codeReview.resetsAt)}`,
+      `  ${label} ${formatBar(remainingPct)} ${remainingPct.toFixed(0)}% left${formatResetSuffix(codeReview.resetsAt)}`,
     )
   }
   if (snapshot.credits?.hasCredits) {
-    lines.push(`  Credits: ${snapshot.credits.balance}`)
+    lines.push(`  Credits:      ${snapshot.credits.balance}`)
   }
 
   return lines
