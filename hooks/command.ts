@@ -40,13 +40,13 @@ export function commandHooks(options: {
         description: "Authenticate Copilot usage token",
       }
       config.command["usage-support"] = {
-        template: "/usage-support",
+        template: "/usage support",
         description: "Support Mirrowel Proxy development",
       }
     },
 
     "command.execute.before": async (input) => {
-      if (input.command === "usage-support") {
+      if (input.command === "usage support") {
         await sendStatusMessage({
           client: options.client,
           state: options.state,
