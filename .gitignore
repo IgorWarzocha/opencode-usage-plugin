@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+
+# IDE/Editor files
+.vscode/
+.idea/
+
+# opencode plugin runtime data
+.opencode/
+
+# Debug logs
+debug.log
+*.log
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+.swp
+*.swo
+*~
