@@ -4,13 +4,12 @@
 
 import type { ProxyResponse, Credential, ModelGroup } from "./types"
 
-// Mapping of API group names to display names
 const GROUP_MAPPING: Record<string, string> = {
   "claude": "claude",
   "g3-pro": "g3-pro",
   "g3-flash": "g3-fla",
-  "pro": "g3-pro",      // mapping for gemini_cli
-  "3-flash": "g3-fla" // mapping for gemini_cli
+  "pro": "g3-pro",
+  "3-flash": "g3-fla"
 }
 
 function formatBar(remainingPercent: number): string {
@@ -66,7 +65,6 @@ function aggregateCredentialsByTier(credentials: Credential[]): Record<"paid" | 
       if (existing) {
         existing.remaining += group.requests_remaining
         existing.max += group.requests_max
-        // Use the furthest reset time for the aggregate view
         if (group.reset_time_iso) {
           if (!existing.resetTime || new Date(group.reset_time_iso) > new Date(existing.resetTime)) {
             existing.resetTime = group.reset_time_iso

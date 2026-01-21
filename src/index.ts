@@ -13,7 +13,6 @@ import { loadProxyConfig } from "./providers/proxy/config"
 export const UsagePlugin: Plugin = async ({ client }) => {
   const state = createUsageState()
 
-  // Initial status check
   try {
     const [auths, proxyConfig] = await Promise.all([
       loadAuths().catch(() => ({})),
@@ -23,15 +22,12 @@ export const UsagePlugin: Plugin = async ({ client }) => {
     state.availableProviders.codex =
       proxyConfig?.providers?.openai !== undefined
         ? proxyConfig.providers.openai
-        : Boolean(auths["codex"] || auths["openai"])
+        : Boolean("codex" in auths && auths["codex"] || "openai" in auths && auths["openai"])
 
     state.availableProviders.proxy =
       proxyConfig?.providers?.proxy !== undefined ? proxyConfig.providers.proxy : Boolean(proxyConfig?.endpoint)
-  } catch {
-    // Fail silent, default to false
-  }
+  } catch {}
 
-  // Helper to send inline status message
   async function sendStatusMessage(sessionID: string, text: string): Promise<void> {
     await client.session.prompt({
       path: { id: sessionID },

@@ -7,11 +7,9 @@ console.log("Checking DB at:", dbPath)
 try {
   const storage = new UsageStorage(dbPath)
 
-  // Check raw count
   const count = (storage as any).db.query("SELECT COUNT(*) as count FROM snapshots").get()
   console.log("Total snapshots:", count.count)
 
-  // Check latest
   const snapshots = storage.getLatestSnapshots()
   console.log("Latest snapshots count:", snapshots.length)
   console.log("Latest snapshots:", JSON.stringify(snapshots, null, 2))

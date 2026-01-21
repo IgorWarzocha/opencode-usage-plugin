@@ -14,13 +14,12 @@ export { loadProxyConfig } from "./config"
 export { fetchProxyLimits } from "./fetch"
 export { formatProxyLimits } from "./format"
 
-// Mapping of API group names to display names
 const GROUP_MAPPING: Record<string, string> = {
   "claude": "claude",
   "g3-pro": "g3-pro",
   "g3-flash": "g3-fla",
-  "pro": "g3-pro",      // mapping for gemini_cli
-  "3-flash": "g3-fla" // mapping for gemini_cli
+  "pro": "g3-pro",
+  "3-flash": "g3-fla"
 }
 
 function normalizeTier(tier?: string): "paid" | "free" {
@@ -35,11 +34,10 @@ function parseQuotaGroupsFromCredential(
   return Object.entries(modelGroups)
     .filter(([name]) => name in GROUP_MAPPING)
     .map(([name, group]) => {
-      // API's remaining_pct is actually used_pct. Calculate real remaining pct.
-      const realRemainingPct = group.requests_max > 0 
-        ? Math.round((group.requests_remaining / group.requests_max) * 100) 
+      const realRemainingPct = group.requests_max > 0
+        ? Math.round((group.requests_remaining / group.requests_max) * 100)
         : 0
-      
+
       return {
         name: GROUP_MAPPING[name]!,
         remaining: group.requests_remaining,
@@ -65,7 +63,6 @@ function aggregateByTier(credentials: Credential[]): ProxyTierInfo[] {
       if (existing) {
         existing.remaining += group.remaining
         existing.max += group.max
-        // Use the latest reset time for the tier
         if (group.resetTime && (!existing.resetTime || new Date(group.resetTime) > new Date(existing.resetTime))) {
           existing.resetTime = group.resetTime
         }
@@ -75,7 +72,6 @@ function aggregateByTier(credentials: Credential[]): ProxyTierInfo[] {
     }
   }
 
-  // Recalculate percentages
   for (const tierGroups of Object.values(tiers)) {
     for (const group of tierGroups.values()) {
       group.remainingPct = group.max > 0 ? Math.round((group.remaining / group.max) * 100) : 0

@@ -32,7 +32,6 @@ export interface CreditsSnapshot {
   balance: string | null
 }
 
-// Proxy quota group info
 export interface ProxyQuotaGroup {
   name: string
   remaining: number
@@ -41,19 +40,16 @@ export interface ProxyQuotaGroup {
   resetTime?: string | null
 }
 
-// Proxy tier info (paid vs free)
 export interface ProxyTierInfo {
   tier: "paid" | "free"
   quotaGroups: ProxyQuotaGroup[]
 }
 
-// Proxy provider info
 export interface ProxyProviderInfo {
   name: string
   tiers: ProxyTierInfo[]
 }
 
-// Proxy quota info from Antigravity proxy
 export interface ProxyQuota {
   providers: ProxyProviderInfo[]
   totalCredentials: number
@@ -91,8 +87,6 @@ export interface UsageEntry {
   statusCode?: number
   latency?: number
 }
-
-export interface TokenUsage {
   provider: string
   model: string
   inputTokens: number

@@ -1,13 +1,26 @@
-# Usage Tracking Plugin
+# @howaboua/opencode-usage-plugin
 
-Real-time usage snapshots (quotas, rate limits, credits) for AI providers like Codex and Mirrowel Proxy.
+[OpenCode](https://opencode.ai) plugin for tracking real-time AI provider usage, rate limits, and quotas.
+
+## Installation
+
+Add to your `opencode.json`:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": ["@howaboua/opencode-usage-plugin"]
+}
+```
+
+OpenCode automatically installs plugin dependencies at runtime.
 
 ## Overview
 
 This plugin integrates into the opencode environment to track and report AI provider usage. It provides:
 - Real-time monitoring of rate limits and quotas.
 - Hooks for intercepting auth, commands, and sessions.
-- A specialized tool (`usage.get`) for querying current state.
+- Specialized tools (`usage.get`, `proxy-limits`) for querying current state.
 
 ## Project Structure
 
@@ -21,3 +34,7 @@ This plugin integrates into the opencode environment to track and report AI prov
 Dependencies are managed in `.opencode/package.json`. Use the `probe-*.ts` scripts in the root for testing API endpoints.
 
 Refer to `AGENTS.md` for detailed development guidelines and coding conventions.
+
+## License
+
+MIT

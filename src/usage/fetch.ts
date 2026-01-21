@@ -22,13 +22,10 @@ const authEntrySchema = z
 
 const authRecordSchema = z.record(z.string(), authEntrySchema)
 
-/** Provider aliases for filtering */
 export const providerAliases: Record<string, string> = {
-  // Codex/OpenAI
   codex: "codex",
   openai: "codex",
   gpt: "codex",
-  // Proxy/Antigravity
   proxy: "proxy",
   agy: "proxy",
   antigravity: "proxy",

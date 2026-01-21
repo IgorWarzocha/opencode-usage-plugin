@@ -1,6 +1,5 @@
 /**
  * Resolves provider auth entries for usage snapshots.
- * Centralizes provider auth mapping for extensibility.
  */
 
 import type { CodexAuth } from "../providers/codex"

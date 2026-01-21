@@ -12,23 +12,18 @@ export async function loadProxyConfig(): Promise<ProxyConfig> {
   if (!(await file.exists())) {
     const content = `/**
  * Usage Plugin Configuration
- * 
- * This file configures tracking for different AI providers.
  */
 {
-  // --- Proxy Settings ---
-  // The base URL of the proxy server (required for proxy tracking)
+  // Proxy endpoint
   "endpoint": "http://localhost:8000",
 
-  // Optional API key for authentication
+  // API key for authentication
   "apiKey": "VerysecretKey",
 
-  // Request timeout in milliseconds (default: 10000)
+  // Request timeout in milliseconds
   "timeout": 10000,
 
-  // --- Provider Visibility ---
-  // Explicitly enable/disable providers in the default report.
-  // If omitted, the plugin will auto-detect based on auth/config presence.
+  // Provider visibility
   "providers": {
     "openai": true,
     "proxy": true
@@ -36,7 +31,6 @@ export async function loadProxyConfig(): Promise<ProxyConfig> {
 }
 `
     await Bun.write(CONFIG_PATH, content)
-    // Return defaults immediately instead of throwing, so the plugin works first time
     return {
       endpoint: "http://localhost:8000",
       apiKey: "VerysecretKey",
@@ -50,8 +44,7 @@ export async function loadProxyConfig(): Promise<ProxyConfig> {
 
   try {
     const content = await file.text()
-    // Using a more robust regex to strip comments without corrupting URLs
-    const cleanJson = content.replace(/(\".*?\"|\'.*?\')|(\/\/.*|\/\*[\s\S]*?\*\/)/g, (match, group1) => group1 ? group1 : "")
+    const cleanJson = content.replace(/(\".*?\"|\'.*?\')|(\/\/.*|\/\*[\s\S]*?\*\/)/g, (m, g1) => g1 ?? "")
     const config = JSON.parse(cleanJson) as ProxyConfig
 
     if (!config.endpoint) {

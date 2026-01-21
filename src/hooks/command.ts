@@ -34,12 +34,10 @@ export function commandHooks(options: {
     },
 
     "command.execute.before": async (input) => {
-      // 1. Silently reject anything that is not the usage command
       if (input.command !== "usage") return
 
       const args = input.arguments?.trim() || ""
 
-      // 2. Special case: support subcommand
       if (args === "support") {
         await sendStatusMessage({
           client: options.client,
@@ -50,20 +48,13 @@ export function commandHooks(options: {
         throw new Error("__USAGE_SUPPORT_HANDLED__")
       }
 
-      // 3. Resolve filter and handle supported/unsupported syntaxes
       const filter = args || undefined
       const targetProvider = resolveProviderFilter(filter)
-      
-      // Filter logic:
-      // - If target matches a provider, use it.
-      // - If no target but args exist (unsupported syntax), fall back to all.
-      // - Special: only include providers that are actually available/configured.
+
       let effectiveFilter = targetProvider ? filter : undefined
 
       const snapshots = await fetchUsageSnapshots(effectiveFilter)
-      
-      // Post-fetch filtering: remove providers that are not configured
-      // unless specifically requested by name.
+
       const filteredSnapshots = snapshots.filter(s => {
         if (targetProvider) return true // User explicitly asked for it
         if (s.provider === "codex") return options.state.availableProviders.codex

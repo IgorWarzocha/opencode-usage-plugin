@@ -1,8 +1,3 @@
-/**
- * Barrel exports for usage providers.
- * Centralizes provider registration for fetchers.
- */
-
 import type { UsageProvider } from "./base"
 import { CodexProvider } from "./codex"
 import { ProxyProvider } from "./proxy"

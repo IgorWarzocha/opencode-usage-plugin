@@ -1,6 +1,5 @@
 /**
- * Proxy limits tool for checking quota stats from the Antigravity proxy.
- * Displays results as an inline status message.
+ * Proxy limits tool for checking quota stats.
  */
 
 import { tool } from "@opencode-ai/plugin"

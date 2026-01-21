@@ -1,6 +1,5 @@
 /**
  * Renders usage snapshots into readable status text.
- * Handles delivery via session prompt with a toast fallback.
  */
 
 import type { PluginInput } from "@opencode-ai/plugin"
@@ -103,7 +102,6 @@ function formatProxySnapshot(snapshot: UsageSnapshot): string[] {
 }
 
 function formatSnapshot(snapshot: UsageSnapshot): string[] {
-  // Handle proxy provider
   if (snapshot.provider === "proxy" && snapshot.proxyQuota) {
     return formatProxySnapshot(snapshot)
   }
