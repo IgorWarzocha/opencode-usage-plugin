@@ -4,19 +4,40 @@
  */
 
 import type { Plugin } from "@opencode-ai/plugin"
-import { authHooks, commandHooks, sessionHooks } from "./hooks"
+import { authHooks, commandHooks, sessionHooks, proxyHooks, markSilent } from "./hooks"
 import { createUsageState } from "./state"
-import { usageTool } from "./tools"
+import { usageTool, createProxyLimitsTool } from "./tools"
 
 export const UsagePlugin: Plugin = async ({ client }) => {
   const state = createUsageState()
+
+  // Helper to send inline status message
+  async function sendStatusMessage(sessionID: string, text: string): Promise<void> {
+    await client.session.prompt({
+      path: { id: sessionID },
+      body: {
+        noReply: true,
+        parts: [
+          {
+            type: "text",
+            text,
+            ignored: true,
+          },
+        ],
+      },
+    })
+  }
+
+  const proxyHookHandlers = proxyHooks()
 
   return {
     ...authHooks(),
     ...commandHooks({ client, state }),
     ...sessionHooks(state),
+    ...proxyHookHandlers,
     tool: {
       "usage.get": usageTool(),
+      "proxy-limits": createProxyLimitsTool(sendStatusMessage, markSilent),
     },
   }
 }

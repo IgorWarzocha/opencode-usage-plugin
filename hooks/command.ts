@@ -32,16 +32,29 @@ export function commandHooks(options: {
       const config = input as UsageConfig
       config.command ??= {}
       config.command["usage"] = {
-        template: "/usage",
-        description: "Show API usage and rate limits",
+        template: "/usage [provider]",
+        description: "Show API usage and rate limits (codex/gh/proxy or all)",
       }
       config.command["usage-auth"] = {
         template: "/usage-auth",
         description: "Authenticate Copilot usage token",
       }
+      config.command["usage-support"] = {
+        template: "/usage-support",
+        description: "Support Mirrowel Proxy development",
+      }
     },
 
     "command.execute.before": async (input) => {
+      if (input.command === "usage-support") {
+        await sendStatusMessage({
+          client: options.client,
+          state: options.state,
+          sessionID: input.sessionID,
+          text: "▣ Support Mirrowel Proxy\n\nSupport our lord and savior: https://ko-fi.com/mirrowel",
+        })
+        throw new Error("__USAGE_SUPPORT_HANDLED__")
+      }
       if (input.command === "usage-auth") {
         const deviceData = await requestDeviceCode({
           clientId: USAGE_CLIENT_ID,
@@ -71,12 +84,17 @@ export function commandHooks(options: {
         throw new Error("__USAGE_AUTH_HANDLED__")
       }
       if (input.command !== "usage") return
-      const snapshots = await fetchUsageSnapshots()
+
+      // Extract filter from arguments (e.g., "/usage proxy" -> "proxy")
+      const filter = input.arguments?.trim() || undefined
+
+      const snapshots = await fetchUsageSnapshots(filter)
       await renderUsageStatus({
         client: options.client,
         state: options.state,
         sessionID: input.sessionID,
         snapshots,
+        filter,
       })
       throw new Error("__USAGE_COMMAND_HANDLED__")
     },

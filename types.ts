@@ -44,6 +44,34 @@ export interface CopilotQuota {
   resetAt: number | null // Unix timestamp when quota resets
 }
 
+// Proxy quota group info
+export interface ProxyQuotaGroup {
+  name: string
+  remaining: number
+  max: number
+  remainingPct: number
+}
+
+// Proxy tier info (paid vs free)
+export interface ProxyTierInfo {
+  tier: "paid" | "free"
+  quotaGroups: ProxyQuotaGroup[]
+}
+
+// Proxy provider info
+export interface ProxyProviderInfo {
+  name: string
+  tiers: ProxyTierInfo[]
+}
+
+// Proxy quota info from Antigravity proxy
+export interface ProxyQuota {
+  providers: ProxyProviderInfo[]
+  totalCredentials: number
+  activeCredentials: number
+  dataSource: string
+}
+
 export interface UsageSnapshot {
   timestamp: number
   provider: string
@@ -54,6 +82,8 @@ export interface UsageSnapshot {
   credits: CreditsSnapshot | null
   // Copilot specific fields
   quota?: CopilotQuota
+  // Proxy specific fields
+  proxyQuota?: ProxyQuota
   updatedAt: number
 }
 

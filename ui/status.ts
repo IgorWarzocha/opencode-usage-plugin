@@ -37,18 +37,142 @@ export async function sendStatusMessage(options: {
     .catch(() => {})
 }
 
+function formatBar(remainingPercent: number): string {
+  const clamped = Math.max(0, Math.min(100, remainingPercent))
+  const size = 20
+  const filled = Math.round((clamped / 100) * size)
+  const empty = size - filled
+  return `[${"=".repeat(filled)}${".".repeat(empty)}]`
+}
+
+function formatPlanType(planType: string): string {
+  return planType
+    .replace(/_/g, " ")
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ")
+}
+
+function formatResetTime(resetAt: number): string {
+  const now = Math.floor(Date.now() / 1000)
+  const diff = resetAt - now
+  if (diff <= 0) return "now"
+  if (diff < 60) return `${diff}s`
+  if (diff < 3600) return `${Math.ceil(diff / 60)}m`
+  if (diff < 86400) return `${Math.round(diff / 3600)}h`
+  return `${Math.round(diff / 86400)}d`
+}
+
+function formatResetSuffix(resetAt: number | null): string {
+  if (!resetAt) return ""
+  return ` (resets in ${formatResetTime(resetAt)})`
+}
+
+function formatProxySnapshot(snapshot: UsageSnapshot): string[] {
+  const proxy = snapshot.proxyQuota
+  if (!proxy) return ["→ [proxy] No data"]
+
+  const lines: string[] = ["→ [Google] Mirrowel Proxy"]
+
+  for (const provider of proxy.providers) {
+    lines.push("")
+    lines.push(`  ${provider.name}:`)
+
+    for (const tierInfo of provider.tiers) {
+      const tierLabel = tierInfo.tier === "paid" ? "Paid" : "Free"
+      lines.push(`    ${tierLabel}:`)
+
+      for (const group of tierInfo.quotaGroups) {
+        lines.push(`      ${group.name}: ${formatBar(group.remainingPct)} ${group.remaining}/${group.max}`)
+      }
+    }
+  }
+
+  return lines
+}
+
+function formatSnapshot(snapshot: UsageSnapshot): string[] {
+  // Handle proxy provider
+  if (snapshot.provider === "proxy" && snapshot.proxyQuota) {
+    return formatProxySnapshot(snapshot)
+  }
+
+  const plan = snapshot.planType ? ` (${formatPlanType(snapshot.planType)})` : ""
+  const base = `→ [${snapshot.provider}]${plan}`
+  const lines: string[] = [base]
+
+  if (snapshot.provider === "github-copilot" && snapshot.quota) {
+    const quota = snapshot.quota
+    const primary = snapshot.primary
+    const secondary = snapshot.secondary
+
+    if (primary) {
+      const remainingPct = 100 - primary.usedPercent
+      lines.push(`  Chat Usage  ${formatBar(remainingPct)} ${remainingPct.toFixed(0)}% left`)
+    }
+    if (secondary) {
+      const remainingPct = 100 - secondary.usedPercent
+      lines.push(`  Completion  ${formatBar(remainingPct)} ${remainingPct.toFixed(0)}% left`)
+    }
+    if (quota.chat !== null) {
+      lines.push(`  Chat Limit: ${quota.chat}/month`)
+    }
+    if (quota.completions !== null) {
+      lines.push(`  Completions Limit: ${quota.completions}/month`)
+    }
+    if (quota.resetAt) {
+      lines.push(`  Resets in ${formatResetTime(quota.resetAt)}`)
+    }
+
+    if (lines.length === 1) {
+      lines.push("  No quota info available")
+    }
+
+    return lines
+  }
+
+  const primary = snapshot.primary
+  if (primary) {
+    const remainingPct = 100 - primary.usedPercent
+    lines.push(
+      `  Hourly       ${formatBar(remainingPct)} ${remainingPct.toFixed(0)}% left${formatResetSuffix(primary.resetsAt)}`,
+    )
+  }
+  const secondary = snapshot.secondary
+  if (secondary) {
+    const remainingPct = 100 - secondary.usedPercent
+    lines.push(
+      `  Weekly       ${formatBar(remainingPct)} ${remainingPct.toFixed(0)}% left${formatResetSuffix(secondary.resetsAt)}`,
+    )
+  }
+  const codeReview = snapshot.codeReview
+  if (codeReview) {
+    const remainingPct = 100 - codeReview.usedPercent
+    lines.push(
+      `  Code Review  ${formatBar(remainingPct)} ${remainingPct.toFixed(0)}% left${formatResetSuffix(codeReview.resetsAt)}`,
+    )
+  }
+  if (snapshot.credits?.hasCredits) {
+    lines.push(`  Credits: ${snapshot.credits.balance}`)
+  }
+
+  return lines
+}
+
 export async function renderUsageStatus(options: {
   client: UsageClient
   state: UsageState
   sessionID: string
   snapshots: UsageSnapshot[]
+  filter?: string
 }): Promise<void> {
   if (options.snapshots.length === 0) {
+    const filterMsg = options.filter ? ` for "${options.filter}"` : ""
     await sendStatusMessage({
       client: options.client,
       state: options.state,
       sessionID: options.sessionID,
-      text: "▣ Usage | No data received from providers.",
+      text: `▣ Usage | No data received${filterMsg}.`,
     })
     return
   }
@@ -69,93 +193,4 @@ export async function renderUsageStatus(options: {
     sessionID: options.sessionID,
     text: lines.join("\n"),
   })
-}
-
-function formatSnapshot(snapshot: UsageSnapshot): string[] {
-  const plan = snapshot.planType ? ` (${formatPlanType(snapshot.planType)})` : ""
-  const base = `→ [${snapshot.provider}]${plan}`
-  const lines: string[] = [base]
-
-  if (snapshot.provider === "github-copilot" && snapshot.quota) {
-    const quota = snapshot.quota
-    const primary = snapshot.primary
-    const secondary = snapshot.secondary
-
-    if (primary) {
-      lines.push(`   Chat Usage  ${formatBar(primary.usedPercent)} ${primary.usedPercent.toFixed(0)}% used`)
-    }
-    if (secondary) {
-      lines.push(`   Completion  ${formatBar(secondary.usedPercent)} ${secondary.usedPercent.toFixed(0)}% used`)
-    }
-    if (quota.chat !== null) {
-      lines.push(`   Chat Limit: ${quota.chat}/month`)
-    }
-    if (quota.completions !== null) {
-      lines.push(`   Completions Limit: ${quota.completions}/month`)
-    }
-    if (quota.resetAt) {
-      lines.push(`   Resets in ${formatResetTime(quota.resetAt)}`)
-    }
-
-    if (lines.length === 1) {
-      lines.push("   No quota info available")
-    }
-
-    return lines
-  }
-
-  const primary = snapshot.primary
-  if (primary) {
-    lines.push(
-      `   Hourly       ${formatBar(primary.usedPercent)} ${primary.usedPercent.toFixed(0)}% used${formatResetSuffix(primary.resetsAt)}`,
-    )
-  }
-  const secondary = snapshot.secondary
-  if (secondary) {
-    lines.push(
-      `   Weekly       ${formatBar(secondary.usedPercent)} ${secondary.usedPercent.toFixed(0)}% used${formatResetSuffix(secondary.resetsAt)}`,
-    )
-  }
-  const codeReview = snapshot.codeReview
-  if (codeReview) {
-    lines.push(
-      `   Code Review  ${formatBar(codeReview.usedPercent)} ${codeReview.usedPercent.toFixed(0)}% used${formatResetSuffix(codeReview.resetsAt)}`,
-    )
-  }
-  if (snapshot.credits?.hasCredits) {
-    lines.push(`   Credits: ${snapshot.credits.balance}`)
-  }
-
-  return lines
-}
-
-function formatResetTime(resetAt: number): string {
-  const now = Math.floor(Date.now() / 1000)
-  const diff = resetAt - now
-  if (diff <= 0) return "now"
-  if (diff < 60) return `${diff}s`
-  if (diff < 3600) return `${Math.ceil(diff / 60)}m`
-  if (diff < 86400) return `${Math.round(diff / 3600)}h`
-  return `${Math.round(diff / 86400)}d`
-}
-
-function formatResetSuffix(resetAt: number | null): string {
-  if (!resetAt) return ""
-  return ` (resets in ${formatResetTime(resetAt)})`
-}
-
-function formatBar(usedPercent: number): string {
-  const clamped = Math.max(0, Math.min(100, usedPercent))
-  const size = 20
-  const filled = Math.round((clamped / 100) * size)
-  const empty = size - filled
-  return `[${"=".repeat(filled)}${".".repeat(empty)}]`
-}
-
-function formatPlanType(planType: string): string {
-  return planType
-    .replace(/_/g, " ")
-    .split(" ")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ")
 }
