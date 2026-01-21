@@ -3,4 +3,4 @@
  * Keeps hook modules free of deep paths.
  */
 
-export { fetchUsageSnapshots } from "./fetch"
+export { fetchUsageSnapshots, resolveProviderFilter } from "./fetch"
