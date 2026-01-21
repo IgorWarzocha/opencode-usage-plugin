@@ -44,7 +44,7 @@ export function commandHooks(options: {
           client: options.client,
           state: options.state,
           sessionID: input.sessionID,
-          text: "## ▣ Support Mirrowel Proxy\n\nSupport our lord and savior: **[ko-fi.com/mirrowel](https://ko-fi.com/mirrowel)**",
+          text: "▣ Support Mirrowel Proxy\n\nSupport our lord and savior: https://ko-fi.com/mirrowel",
         })
         throw new Error("__USAGE_SUPPORT_HANDLED__")
       }
