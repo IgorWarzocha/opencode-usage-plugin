@@ -1,6 +1,6 @@
 # Usage Tracking Plugin
 
-Real-time usage snapshots (quotas, rate limits, credits) for AI providers like Copilot and Codex.
+Real-time usage snapshots (quotas, rate limits, credits) for AI providers like Codex and Mirrowel Proxy.
 
 ## Overview
 
@@ -12,7 +12,7 @@ This plugin integrates into the opencode environment to track and report AI prov
 ## Project Structure
 
 - `hooks/`: System event interceptors.
-- `providers/`: AI provider fetchers (Copilot, Codex).
+ - `providers/`: AI provider fetchers (Codex, Proxy).
 - `usage/`: Snapshot business logic.
 - `ui/`: Status indicators for CLI/IDE.
 

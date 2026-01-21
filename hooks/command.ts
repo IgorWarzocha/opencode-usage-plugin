@@ -29,7 +29,7 @@ export function commandHooks(options: {
       config.command ??= {}
       config.command["usage"] = {
         template: "/usage",
-        description: "Show API usage and rate limits (codex/gh/proxy or all)",
+        description: "Show API usage and rate limits (codex/proxy or all)",
       }
     },
 
