@@ -1,6 +1,13 @@
-# @howaboua/opencode-usage-plugin
+# OpenCode Usage Plugin
 
-[OpenCode](https://opencode.ai) plugin for tracking real-time AI provider usage, rate limits, and quotas.
+Track AI provider rate limits and quotas in real-time.
+
+## Features
+
+- **Live rate limits** – See Codex/OpenAI hourly/weekly limits at a glance
+- **Proxy quota stats** – Monitor Mirrowel Proxy credentials and tier usage
+- **Inline status** – Results appear directly in your chat, no context switching
+- **Zero setup** – Auto-detects providers from your existing config
 
 ## Installation
 
@@ -9,32 +16,73 @@ Add to your `opencode.json`:
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": ["@howaboua/opencode-usage-plugin"]
+  "plugins": ["@howaboua/opencode-usage-plugin"]
 }
 ```
 
-OpenCode automatically installs plugin dependencies at runtime.
+OpenCode installs dependencies automatically on next launch.
 
-## Overview
+## Usage
 
-This plugin integrates into the opencode environment to track and report AI provider usage. It provides:
-- Real-time monitoring of rate limits and quotas.
-- Hooks for intercepting auth, commands, and sessions.
-- Specialized tools (`usage.get`, `proxy-limits`) for querying current state.
+### Check all providers
 
-## Project Structure
+```
+/usage
+```
 
-- `hooks/`: System event interceptors.
- - `providers/`: AI provider fetchers (Codex, Proxy).
-- `usage/`: Snapshot business logic.
-- `ui/`: Status indicators for CLI/IDE.
+### Check specific provider
+
+```
+/usage codex
+/usage proxy
+```
+
+### Support the proxy
+
+```
+/usage support
+```
+
+## Supported Providers
+
+| Provider | Source |
+|----------|--------|
+| **Codex / OpenAI** | Auth tokens + `/wham/usage` endpoint |
+| **Mirrowel Proxy** | Local `/v1/quota-stats` endpoint |
+
+## Configuration
+
+Optional config at `~/.config/opencode/usage-config.jsonc`:
+
+```jsonc
+{
+  // Proxy server endpoint
+  "endpoint": "http://localhost:8000",
+
+  // API key for proxy auth
+  "apiKey": "your-key",
+
+  // Request timeout (ms)
+  "timeout": 10000,
+
+  // Show/hide providers in /usage output
+  "providers": {
+    "openai": true,
+    "proxy": true
+  }
+}
+```
+
+If missing, the plugin creates a default template on first run.
 
 ## Development
 
-Dependencies are managed in `.opencode/package.json`. Use the `probe-*.ts` scripts in the root for testing API endpoints.
+```bash
+# Check DB contents
+bun run debug-db.ts
 
-Refer to `AGENTS.md` for detailed development guidelines and coding conventions.
+# Verify path resolution
+bun run debug-path.ts
+```
 
-## License
-
-MIT
+See `AGENTS.md` for internal architecture.
