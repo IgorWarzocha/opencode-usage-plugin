@@ -6,9 +6,7 @@
 import type { Hooks, PluginInput } from "@opencode-ai/plugin"
 import type { UsageState } from "../state"
 import { fetchUsageSnapshots } from "../usage"
-import { renderUsageStatus, sendStatusMessage } from "../ui"
-import { pollAccessToken, requestDeviceCode } from "../auth"
-import { writeUsageToken } from "../utils"
+import { renderUsageStatus } from "../ui"
 
 type UsageClient = PluginInput["client"]
 
@@ -20,8 +18,6 @@ type CommandConfig = {
 type UsageConfig = {
   command?: Record<string, CommandConfig>
 }
-
-const USAGE_CLIENT_ID = "Iv1.b507a08c87ecfe98"
 
 export function commandHooks(options: {
   client: UsageClient
@@ -35,41 +31,9 @@ export function commandHooks(options: {
         template: "/usage",
         description: "Show API usage and rate limits",
       }
-      config.command["usage-auth"] = {
-        template: "/usage-auth",
-        description: "Authenticate Copilot usage token",
-      }
     },
 
     "command.execute.before": async (input) => {
-      if (input.command === "usage-auth") {
-        const deviceData = await requestDeviceCode({
-          clientId: USAGE_CLIENT_ID,
-          scope: "read:user",
-        })
-
-        await sendStatusMessage({
-          client: options.client,
-          state: options.state,
-          sessionID: input.sessionID,
-          text: `Copilot usage auth\nOpen: ${deviceData.verification_uri}\nCode: ${deviceData.user_code}`,
-        })
-
-        const token = await pollAccessToken({
-          clientId: USAGE_CLIENT_ID,
-          deviceCode: deviceData,
-        })
-
-        await writeUsageToken(token)
-        await sendStatusMessage({
-          client: options.client,
-          state: options.state,
-          sessionID: input.sessionID,
-          text: "Copilot usage token saved.",
-        })
-
-        throw new Error("__USAGE_AUTH_HANDLED__")
-      }
       if (input.command !== "usage") return
       const snapshots = await fetchUsageSnapshots()
       await renderUsageStatus({
