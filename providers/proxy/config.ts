@@ -35,15 +35,11 @@ export async function loadProxyConfig(): Promise<ProxyConfig> {
       timeout: 10000,
     }
   }
-`
-    await Bun.write(CONFIG_PATH, content)
-    throw new Error(\`Created configuration template at: \${CONFIG_PATH}\`)
-  }
 
   try {
     const content = await file.text()
-    // Using a simple regex to strip comments for basic .jsonc support without extra deps
-    const cleanJson = content.replace(/\/\/.*|\/\*[\s\S]*?\*\//g, "")
+    // Using a more robust regex to strip comments without corrupting URLs
+    const cleanJson = content.replace(/(\".*?\"|\'.*?\')|(\/\/.*|\/\*[\s\S]*?\*\/)/g, (match, group1) => group1 ? group1 : "")
     const config = JSON.parse(cleanJson) as ProxyConfig
 
     if (!config.endpoint) {
