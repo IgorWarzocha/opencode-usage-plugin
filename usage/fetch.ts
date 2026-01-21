@@ -23,7 +23,7 @@ const authEntrySchema = z
 const authRecordSchema = z.record(z.string(), authEntrySchema)
 
 /** Provider aliases for filtering */
-const providerAliases: Record<string, string> = {
+export const providerAliases: Record<string, string> = {
   // Codex/OpenAI
   codex: "codex",
   openai: "codex",
@@ -35,7 +35,7 @@ const providerAliases: Record<string, string> = {
   gemini: "proxy",
 }
 
-function resolveProviderFilter(filter?: string): string | undefined {
+export function resolveProviderFilter(filter?: string): string | undefined {
   if (!filter) return undefined
   const normalized = filter.toLowerCase().trim()
   return providerAliases[normalized]

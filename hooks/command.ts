@@ -5,7 +5,7 @@
 
 import type { Hooks, PluginInput } from "@opencode-ai/plugin"
 import type { UsageState } from "../state"
-import { fetchUsageSnapshots } from "../usage"
+import { fetchUsageSnapshots, resolveProviderFilter } from "../usage"
 import { renderUsageStatus, sendStatusMessage } from "../ui"
 
 type UsageClient = PluginInput["client"]
@@ -34,12 +34,13 @@ export function commandHooks(options: {
     },
 
     "command.execute.before": async (input) => {
-      if (input.command !== "usage" && input.command !== "usage support") return
+      // 1. Silently reject anything that is not the usage command
+      if (input.command !== "usage") return
 
-      // Extract filter from arguments (e.g., "/usage proxy" -> "proxy")
-      const filter = input.arguments?.trim() || undefined
+      const args = input.arguments?.trim() || ""
 
-      if (input.command === "usage support" || filter === "support") {
+      // 2. Special case: support subcommand
+      if (args === "support") {
         await sendStatusMessage({
           client: options.client,
           state: options.state,
@@ -49,14 +50,24 @@ export function commandHooks(options: {
         throw new Error("__USAGE_SUPPORT_HANDLED__")
       }
 
-      const snapshots = await fetchUsageSnapshots(filter)
+      // 3. Resolve filter and handle supported/unsupported syntaxes
+      // If arguments are provided but don't match a provider alias, we treat it
+      // as an unsupported syntax and fall back to displaying everything.
+      const filter = args || undefined
+      const targetProvider = resolveProviderFilter(filter)
+      
+      const effectiveFilter = targetProvider ? filter : undefined
+
+      const snapshots = await fetchUsageSnapshots(effectiveFilter)
+      
       await renderUsageStatus({
         client: options.client,
         state: options.state,
         sessionID: input.sessionID,
         snapshots,
-        filter,
+        filter: effectiveFilter,
       })
+      
       throw new Error("__USAGE_COMMAND_HANDLED__")
     },
   }
