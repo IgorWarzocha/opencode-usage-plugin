@@ -1,15 +1,15 @@
 # AGENTS.md - Usage Tracking Plugin
 
 <instructions>
-This plugin tracks and reports real-time usage snapshots (quotas, rate limits, credits) for AI providers like Copilot and Codex. It integrates into the opencode environment via hooks and provides a specialized tool for querying usage state.
+This plugin tracks and reports real-time usage snapshots (quotas, rate limits, credits) for AI providers like Codex and Mirrowel Proxy. It integrates into the opencode environment via hooks and provides specialized tools for querying usage state.
 </instructions>
 
 ## 🧭 Navigation
 
 - **Entry Point**: `index.ts` (wires hooks and tools)
 - **Core Logic**:
-  - `hooks/`: Intercepts system events (auth, commands, sessions)
-  - `providers/`: Specialized fetchers for different AI providers (e.g., GitHub Copilot)
+  - `hooks/`: Intercepts system events (commands, sessions, experimental)
+  - `providers/`: Specialized fetchers for different AI providers (e.g., Codex, Proxy)
   - `usage/`: Business logic for fetching and caching snapshots
   - `ui/`: Status indicators and display logic
 - **Data Model**: `types.ts` defines `UsageSnapshot`, `UsageEntry`, and `PlanType`
@@ -18,10 +18,11 @@ This plugin tracks and reports real-time usage snapshots (quotas, rate limits, c
 ## 🛠️ Development Workflow
 
 ### Commands
-Since this repository lacks a standard `package.json` in the root (dependencies are in `.opencode/package.json`), use the following conventions:
+Dependencies are in root `package.json`. The plugin loads via `opencode.json`.
 
-- **Build/Lint**: Standard TypeScript compilation should target `index.ts`
-- **Testing**: Many `probe-*.ts` and `debug-*.ts` files exist in the root for manual verification of API endpoints and token parsing
+- **Load Plugin**: `opencode` (automatically loads plugin specified in `opencode.json`)
+- **Build Check**: Verify `index.ts` compiles: `bun --version && bun index.ts --help 2>/dev/null || true`
+- **Test Storage**: `bun run debug-db.ts` (queries SQLite at `.opencode/plugin/usage/usage.sqlite`)
 
 ### Conventions
 - **Hooks**: MUST follow the pattern in `hooks/index.ts`. Use barrel exports to keep `index.ts` lean.
@@ -40,11 +41,7 @@ Since this repository lacks a standard `package.json` in the root (dependencies 
 ### Modifying UI Indicators
 - Update `ui/status.ts` to change how usage information is displayed in the CLI/IDE.
 
-### Debugging API Calls
-- Use or adapt existing `probe-*.ts` scripts to test new API endpoints or authentication flows without running the full plugin.
-
 <rules>
 - MUST NOT modify `storage.ts` without verifying cross-platform path compatibility via `utils/paths.ts`.
-- MUST use the `authHooks` to manage provider-specific credentials.
-- SHOULD prioritize `CopilotProvider` patterns when implementing similar REST-based fetchers.
+- MUST maintain clear separation between providers in `providers/`.
 </rules>

@@ -6,7 +6,7 @@
 import type { Hooks, PluginInput } from "@opencode-ai/plugin"
 import type { UsageState } from "../state"
 import { fetchUsageSnapshots } from "../usage"
-import { renderUsageStatus } from "../ui"
+import { renderUsageStatus, sendStatusMessage } from "../ui"
 
 type UsageClient = PluginInput["client"]
 
@@ -29,18 +29,33 @@ export function commandHooks(options: {
       config.command ??= {}
       config.command["usage"] = {
         template: "/usage",
-        description: "Show API usage and rate limits",
+        description: "Show API usage and rate limits (codex/gh/proxy or all)",
       }
     },
 
     "command.execute.before": async (input) => {
-      if (input.command !== "usage") return
-      const snapshots = await fetchUsageSnapshots()
+      if (input.command !== "usage" && input.command !== "usage support") return
+
+      // Extract filter from arguments (e.g., "/usage proxy" -> "proxy")
+      const filter = input.arguments?.trim() || undefined
+
+      if (input.command === "usage support" || filter === "support") {
+        await sendStatusMessage({
+          client: options.client,
+          state: options.state,
+          sessionID: input.sessionID,
+          text: "▣ Support Mirrowel Proxy\n\nSupport our lord and savior: https://ko-fi.com/mirrowel",
+        })
+        throw new Error("__USAGE_SUPPORT_HANDLED__")
+      }
+
+      const snapshots = await fetchUsageSnapshots(filter)
       await renderUsageStatus({
         client: options.client,
         state: options.state,
         sessionID: input.sessionID,
         snapshots,
+        filter,
       })
       throw new Error("__USAGE_COMMAND_HANDLED__")
     },

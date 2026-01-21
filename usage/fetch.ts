@@ -1,6 +1,6 @@
 /**
  * Loads auth data and fetches live usage snapshots from providers.
- * Ensures only OAuth-backed providers are queried.
+ * Supports filtering by provider alias.
  */
 
 import z from "zod"
@@ -22,22 +22,59 @@ const authEntrySchema = z
 
 const authRecordSchema = z.record(z.string(), authEntrySchema)
 
-export async function fetchUsageSnapshots(): Promise<UsageSnapshot[]> {
+/** Provider aliases for filtering */
+const providerAliases: Record<string, string> = {
+  // Codex/OpenAI
+  codex: "codex",
+  openai: "codex",
+  gpt: "codex",
+  // Proxy/Antigravity
+  proxy: "proxy",
+  agy: "proxy",
+  antigravity: "proxy",
+  gemini: "proxy",
+}
+
+function resolveProviderFilter(filter?: string): string | undefined {
+  if (!filter) return undefined
+  const normalized = filter.toLowerCase().trim()
+  return providerAliases[normalized]
+}
+
+export async function fetchUsageSnapshots(filter?: string): Promise<UsageSnapshot[]> {
+  const targetProvider = resolveProviderFilter(filter)
   const auths = await loadAuths()
   const entries = resolveProviderAuths(auths, null)
   const snapshots: UsageSnapshot[] = []
-  const fetches = entries.map(async (entry) => {
-    const provider = providers[entry.providerID]
-    if (!provider?.fetchUsage) return
-    const snapshot = await provider.fetchUsage(entry.auth).catch(() => null)
-    if (snapshot) snapshots.push(snapshot)
-  })
+
+  // Fetch from auth-based providers
+  const fetches = entries
+    .filter((entry) => !targetProvider || entry.providerID === targetProvider)
+    .map(async (entry) => {
+      const provider = providers[entry.providerID]
+      if (!provider?.fetchUsage) return
+      const snapshot = await provider.fetchUsage(entry.auth).catch(() => null)
+      if (snapshot) snapshots.push(snapshot)
+    })
+
+  // Always include proxy if no filter or filter matches proxy
+  if (!targetProvider || targetProvider === "proxy") {
+    const proxyProvider = providers["proxy"]
+    if (proxyProvider?.fetchUsage) {
+      fetches.push(
+        proxyProvider
+          .fetchUsage(undefined)
+          .then((snapshot) => {
+            if (snapshot) snapshots.push(snapshot)
+          })
+          .catch(() => {}),
+      )
+    }
+  }
 
   await Promise.race([Promise.all(fetches), timeout(5000)])
   return snapshots
 }
-
-
 
 async function loadAuths(): Promise<AuthRecord> {
   const authPath = getAuthFilePath()

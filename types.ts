@@ -32,6 +32,35 @@ export interface CreditsSnapshot {
   balance: string | null
 }
 
+// Proxy quota group info
+export interface ProxyQuotaGroup {
+  name: string
+  remaining: number
+  max: number
+  remainingPct: number
+  resetTime?: string | null
+}
+
+// Proxy tier info (paid vs free)
+export interface ProxyTierInfo {
+  tier: "paid" | "free"
+  quotaGroups: ProxyQuotaGroup[]
+}
+
+// Proxy provider info
+export interface ProxyProviderInfo {
+  name: string
+  tiers: ProxyTierInfo[]
+}
+
+// Proxy quota info from Antigravity proxy
+export interface ProxyQuota {
+  providers: ProxyProviderInfo[]
+  totalCredentials: number
+  activeCredentials: number
+  dataSource: string
+}
+
 export interface UsageSnapshot {
   timestamp: number
   provider: string
@@ -40,24 +69,8 @@ export interface UsageSnapshot {
   secondary: RateLimitWindow | null
   codeReview: RateLimitWindow | null
   credits: CreditsSnapshot | null
-  updatedAt: number
-}
-
-
-export interface CreditsSnapshot {
-  hasCredits: boolean
-  unlimited: boolean
-  balance: string | null
-}
-
-export interface UsageSnapshot {
-  timestamp: number
-  provider: string
-  planType: PlanType | null
-  primary: RateLimitWindow | null
-  secondary: RateLimitWindow | null
-  codeReview: RateLimitWindow | null
-  credits: CreditsSnapshot | null
+  // Proxy specific fields
+  proxyQuota?: ProxyQuota
   updatedAt: number
 }
 
