@@ -55,38 +55,21 @@ export function commandHooks(options: {
         })
         throw new Error("__USAGE_SUPPORT_HANDLED__")
       }
-      if (input.command === "usage-auth") {
-        const deviceData = await requestDeviceCode({
-          clientId: USAGE_CLIENT_ID,
-          scope: "read:user",
-        })
 
-        await sendStatusMessage({
-          client: options.client,
-          state: options.state,
-          sessionID: input.sessionID,
-          text: `Copilot usage auth\nOpen: ${deviceData.verification_uri}\nCode: ${deviceData.user_code}`,
-        })
-
-        const token = await pollAccessToken({
-          clientId: USAGE_CLIENT_ID,
-          deviceCode: deviceData,
-        })
-
-        await writeUsageToken(token)
-        await sendStatusMessage({
-          client: options.client,
-          state: options.state,
-          sessionID: input.sessionID,
-          text: "Copilot usage token saved.",
-        })
-
-        throw new Error("__USAGE_AUTH_HANDLED__")
-      }
       if (input.command !== "usage") return
 
       // Extract filter from arguments (e.g., "/usage proxy" -> "proxy")
       const filter = input.arguments?.trim() || undefined
+
+      if (filter === "support") {
+        await sendStatusMessage({
+          client: options.client,
+          state: options.state,
+          sessionID: input.sessionID,
+          text: "▣ Support Mirrowel Proxy\n\nSupport our lord and savior: https://ko-fi.com/mirrowel",
+        })
+        throw new Error("__USAGE_SUPPORT_HANDLED__")
+      }
 
       const snapshots = await fetchUsageSnapshots(filter)
       await renderUsageStatus({
