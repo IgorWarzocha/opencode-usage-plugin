@@ -2,7 +2,7 @@
  * Display formatting utilities for proxy limits.
  */
 
-import type { ProxyResponse, Credential } from "./types"
+import type { ProxyResponse, Credential, ModelGroup } from "./types"
 
 // Mapping of API group names to display names
 const GROUP_MAPPING: Record<string, string> = {
@@ -13,8 +13,8 @@ const GROUP_MAPPING: Record<string, string> = {
   "3-flash": "g3-fla" // mapping for gemini_cli
 }
 
-function formatBar(usedPercent: number): string {
-  const clamped = Math.max(0, Math.min(100, usedPercent))
+function formatBar(remainingPercent: number): string {
+  const clamped = Math.max(0, Math.min(100, remainingPercent))
   const size = 20
   const filled = Math.round((clamped / 100) * size)
   const empty = size - filled
@@ -26,12 +26,32 @@ function normalizeTier(tier?: string): "paid" | "free" {
   return tier.includes("free") ? "free" : "paid"
 }
 
-type TierQuotas = Map<string, { remaining: number; max: number }>
+function formatResetTime(isoString: string | null): string {
+  if (!isoString) return ""
+  try {
+    const resetAt = new Date(isoString).getTime() / 1000
+    const now = Math.floor(Date.now() / 1000)
+    const diff = resetAt - now
+    if (diff <= 0) return ""
+    if (diff < 60) return ` (resets in ${diff}s)`
+    if (diff < 3600) return ` (resets in ${Math.ceil(diff / 60)}m)`
+    if (diff < 86400) return ` (resets in ${Math.round(diff / 3600)}h)`
+    return ` (resets in ${Math.round(diff / 86400)}d)`
+  } catch {
+    return ""
+  }
+}
 
-function aggregateCredentialsByTier(credentials: Credential[]): { paid: TierQuotas; free: TierQuotas } {
+type GroupQuota = {
+  remaining: number
+  max: number
+  resetTime: string | null
+}
+
+function aggregateCredentialsByTier(credentials: Credential[]): Record<"paid" | "free", Map<string, GroupQuota>> {
   const result = {
-    paid: new Map<string, { remaining: number; max: number }>(),
-    free: new Map<string, { remaining: number; max: number }>(),
+    paid: new Map<string, GroupQuota>(),
+    free: new Map<string, GroupQuota>(),
   }
 
   for (const cred of credentials) {
@@ -45,11 +65,18 @@ function aggregateCredentialsByTier(credentials: Credential[]): { paid: TierQuot
       const existing = result[tier].get(mappedName)
       if (existing) {
         existing.remaining += group.requests_remaining
-        existing.max += group.max
+        existing.max += group.requests_max
+        // Use the furthest reset time for the aggregate view
+        if (group.reset_time_iso) {
+          if (!existing.resetTime || new Date(group.reset_time_iso) > new Date(existing.resetTime)) {
+            existing.resetTime = group.reset_time_iso
+          }
+        }
       } else {
         result[tier].set(mappedName, {
           remaining: group.requests_remaining,
           max: group.requests_max,
+          resetTime: group.reset_time_iso,
         })
       }
     }
@@ -82,7 +109,8 @@ export function formatProxyLimits(data: ProxyResponse): string {
 
       for (const [groupName, quota] of quotas) {
         const remainingPct = quota.max > 0 ? (quota.remaining / quota.max) * 100 : 0
-        lines.push(`    ${groupName}: ${formatBar(remainingPct)} ${quota.remaining}/${quota.max}`)
+        const resetSuffix = quota.remaining === 0 ? formatResetTime(quota.resetTime) : ""
+        lines.push(`    ${groupName}: ${formatBar(remainingPct)} ${quota.remaining}/${quota.max}${resetSuffix}`)
       }
     }
 

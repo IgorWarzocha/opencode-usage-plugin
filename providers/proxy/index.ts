@@ -28,27 +28,6 @@ function normalizeTier(tier?: string): "paid" | "free" {
   return tier.includes("free") ? "free" : "paid"
 }
 
-function parseQuotaGroupsFromCredential(
-  modelGroups: Record<string, ModelGroup> | undefined,
-): ProxyQuotaGroup[] {
-  if (!modelGroups) return []
-  return Object.entries(modelGroups)
-    .filter(([name]) => name in GROUP_MAPPING)
-    .map(([name, group]) => {
-      // API's remaining_pct is actually used_pct. Calculate real remaining pct.
-      const realRemainingPct = group.requests_max > 0 
-        ? Math.round((group.requests_remaining / group.requests_max) * 100) 
-        : 0
-      
-      return {
-        name: GROUP_MAPPING[name]!,
-        remaining: group.requests_remaining,
-        max: group.requests_max,
-        remainingPct: realRemainingPct,
-      }
-    })
-}
-
 function aggregateByTier(credentials: Credential[]): ProxyTierInfo[] {
   const tiers: Record<"paid" | "free", Map<string, ProxyQuotaGroup>> = {
     paid: new Map(),
@@ -57,15 +36,23 @@ function aggregateByTier(credentials: Credential[]): ProxyTierInfo[] {
 
   for (const cred of credentials) {
     const tier = normalizeTier(cred.tier)
-    const groups = parseQuotaGroupsFromCredential(cred.model_groups)
+    const groups = cred.model_groups ?? {}
 
-    for (const group of groups) {
-      const existing = tiers[tier].get(group.name)
+    for (const [name, group] of Object.entries(groups)) {
+      if (!(name in GROUP_MAPPING)) continue
+      const mappedName = GROUP_MAPPING[name]!
+
+      const existing = tiers[tier].get(mappedName)
       if (existing) {
-        existing.remaining += group.remaining
+        existing.remaining += group.requests_remaining
         existing.max += group.max
       } else {
-        tiers[tier].set(group.name, { ...group })
+        tiers[tier].set(mappedName, {
+          name: mappedName,
+          remaining: group.requests_remaining,
+          max: group.requests_max,
+          remainingPct: 0, // calculated below
+        })
       }
     }
   }
