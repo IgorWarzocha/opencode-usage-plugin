@@ -45,9 +45,36 @@ function formatBar(remainingPercent: number): string {
   return `\`${"█".repeat(filled)}${"░".repeat(empty)}\``
 }
 
+function formatPlanType(planType: string): string {
+  return planType
+    .replace(/_/g, " ")
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ")
+}
+
+function formatResetTime(resetAt: number): string {
+  const now = Math.floor(Date.now() / 1000)
+  const diff = resetAt - now
+  if (diff <= 0) return "now"
+  if (diff < 60) return `${diff}s`
+  if (diff < 3600) return `${Math.ceil(diff / 60)}m`
+  if (diff < 86400) return `${Math.round(diff / 3600)}h`
+  return `${Math.round(diff / 86400)}d`
+}
+
 function formatResetSuffix(resetAt: number | null): string {
   if (!resetAt) return ""
   return ` (resets in ${formatResetTime(resetAt)})`
+}
+
+function formatResetSuffixISO(isoString: string): string {
+  try {
+    const resetAt = Math.floor(new Date(isoString).getTime() / 1000)
+    return ` (resets in ${formatResetTime(resetAt)})`
+  } catch {
+    return ""
+  }
 }
 
 function formatProxySnapshot(snapshot: UsageSnapshot): string[] {
@@ -72,15 +99,6 @@ function formatProxySnapshot(snapshot: UsageSnapshot): string[] {
   }
 
   return lines
-}
-
-function formatResetSuffixISO(isoString: string): string {
-  try {
-    const resetAt = Math.floor(new Date(isoString).getTime() / 1000)
-    return ` (resets in ${formatResetTime(resetAt)})`
-  } catch {
-    return ""
-  }
 }
 
 function formatSnapshot(snapshot: UsageSnapshot): string[] {
@@ -146,207 +164,6 @@ export async function renderUsageStatus(options: {
     if (index < options.snapshots.length - 1) {
       lines.push("")
       lines.push("---")
-    }
-  })
-
-  await sendStatusMessage({
-    client: options.client,
-    state: options.state,
-    sessionID: options.sessionID,
-    text: lines.join("\n"),
-  })
-}
-
-function formatProxySnapshot(snapshot: UsageSnapshot): string[] {
-  const proxy = snapshot.proxyQuota
-  if (!proxy) return ["#### → `proxy` No data"]
-
-  const lines: string[] = ["### ▣ Mirrowel Proxy"]
-
-  for (const provider of proxy.providers) {
-    lines.push("")
-    lines.push(`**${provider.name}**`)
-    lines.push("| Tier | Group | Usage | Remaining |")
-    lines.push("| :--- | :--- | :--- | :--- |")
-
-    for (const tierInfo of provider.tiers) {
-      const tierLabel = tierInfo.tier === "paid" ? "Paid" : "Free"
-
-      for (const group of tierInfo.quotaGroups) {
-        const resetSuffix = group.resetTime ? formatResetTimeISOShort(group.resetTime) : ""
-        const remainingStr = `**${group.remaining}/${group.max}**${resetSuffix}`
-        lines.push(`| ${tierLabel} | ${group.name} | ${formatBar(group.remainingPct)} | ${remainingStr} |`)
-      }
-    }
-  }
-
-  return lines
-}
-
-function formatResetTimeISOShort(isoString: string): string {
-  try {
-    const resetAt = Math.floor(new Date(isoString).getTime() / 1000)
-    return ` _(${formatResetTime(resetAt)})_`
-  } catch {
-    return ""
-  }
-}
-
-function formatSnapshot(snapshot: UsageSnapshot): string[] {
-  // Handle proxy provider
-  if (snapshot.provider === "proxy" && snapshot.proxyQuota) {
-    return formatProxySnapshot(snapshot)
-  }
-
-  const plan = snapshot.planType ? ` (${formatPlanType(snapshot.planType)})` : ""
-  const lines: string[] = [`### → **${snapshot.provider.toUpperCase()}**${plan}`, ""]
-
-  const primary = snapshot.primary
-  if (primary) {
-    const remainingPct = 100 - primary.usedPercent
-    lines.push(
-      `- **Hourly**: ${formatBar(remainingPct)} **${remainingPct.toFixed(0)}%** left${formatResetSuffix(primary.resetsAt)}`,
-    )
-  }
-  const secondary = snapshot.secondary
-  if (secondary) {
-    const remainingPct = 100 - secondary.usedPercent
-    lines.push(
-      `- **Weekly**: ${formatBar(remainingPct)} **${remainingPct.toFixed(0)}%** left${formatResetSuffix(secondary.resetsAt)}`,
-    )
-  }
-  const codeReview = snapshot.codeReview
-  if (codeReview) {
-    const remainingPct = 100 - codeReview.usedPercent
-    lines.push(
-      `- **Review**: ${formatBar(remainingPct)} **${remainingPct.toFixed(0)}%** left${formatResetSuffix(codeReview.resetsAt)}`,
-    )
-  }
-  if (snapshot.credits?.hasCredits) {
-    lines.push(`- **Credits**: **${snapshot.credits.balance}**`)
-  }
-
-  return lines
-}
-
-function formatPlanType(planType: string): string {
-  return planType
-    .replace(/_/g, " ")
-    .split(" ")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ")
-}
-
-function formatResetTime(resetAt: number): string {
-  const now = Math.floor(Date.now() / 1000)
-  const diff = resetAt - now
-  if (diff <= 0) return "now"
-  if (diff < 60) return `${diff}s`
-  if (diff < 3600) return `${Math.ceil(diff / 60)}m`
-  if (diff < 86400) return `${Math.round(diff / 3600)}h`
-  return `${Math.round(diff / 86400)}d`
-}
-
-function formatResetSuffix(resetAt: number | null): string {
-  if (!resetAt) return ""
-  return ` _(resets in ${formatResetTime(resetAt)})_`
-}
-
-function formatResetSuffixISO(isoString: string): string {
-  try {
-    const resetAt = Math.floor(new Date(isoString).getTime() / 1000)
-    return ` _(resets in ${formatResetTime(resetAt)})_`
-  } catch {
-    return ""
-  }
-}
-
-function formatProxySnapshot(snapshot: UsageSnapshot): string[] {
-  const proxy = snapshot.proxyQuota
-  if (!proxy) return ["#### → `proxy` No data"]
-
-  const lines: string[] = ["### ▣ Mirrowel Proxy"]
-
-  for (const provider of proxy.providers) {
-    lines.push("")
-    lines.push(`**${provider.name}**`)
-
-    for (const tierInfo of provider.tiers) {
-      const tierLabel = tierInfo.tier === "paid" ? "Paid" : "Free"
-      lines.push(`- **${tierLabel}**`)
-
-      for (const group of tierInfo.quotaGroups) {
-        const resetSuffix = group.resetTime ? formatResetSuffixISO(group.resetTime) : ""
-        lines.push(`  - ${group.name}: ${formatBar(group.remainingPct)} **${group.remaining}/${group.max}**${resetSuffix}`)
-      }
-    }
-  }
-
-  return lines
-}
-
-function formatSnapshot(snapshot: UsageSnapshot): string[] {
-  // Handle proxy provider
-  if (snapshot.provider === "proxy" && snapshot.proxyQuota) {
-    return formatProxySnapshot(snapshot)
-  }
-
-  const plan = snapshot.planType ? ` (${formatPlanType(snapshot.planType)})` : ""
-  const lines: string[] = [`### → **${snapshot.provider.toUpperCase()}**${plan}`]
-
-  const primary = snapshot.primary
-  if (primary) {
-    const remainingPct = 100 - primary.usedPercent
-    lines.push(
-      `- **Hourly**:   ${formatBar(remainingPct)} **${remainingPct.toFixed(0)}%** left${formatResetSuffix(primary.resetsAt)}`,
-    )
-  }
-  const secondary = snapshot.secondary
-  if (secondary) {
-    const remainingPct = 100 - secondary.usedPercent
-    lines.push(
-      `- **Weekly**:   ${formatBar(remainingPct)} **${remainingPct.toFixed(0)}%** left${formatResetSuffix(secondary.resetsAt)}`,
-    )
-  }
-  const codeReview = snapshot.codeReview
-  if (codeReview) {
-    const remainingPct = 100 - codeReview.usedPercent
-    lines.push(
-      `- **Review**:   ${formatBar(remainingPct)} **${remainingPct.toFixed(0)}%** left${formatResetSuffix(codeReview.resetsAt)}`,
-    )
-  }
-  if (snapshot.credits?.hasCredits) {
-    lines.push(`- **Credits**: **${snapshot.credits.balance}**`)
-  }
-
-  return lines
-}
-
-export async function renderUsageStatus(options: {
-  client: UsageClient
-  state: UsageState
-  sessionID: string
-  snapshots: UsageSnapshot[]
-  filter?: string
-}): Promise<void> {
-  if (options.snapshots.length === 0) {
-    const filterMsg = options.filter ? ` for \`${options.filter}\`` : ""
-    await sendStatusMessage({
-      client: options.client,
-      state: options.state,
-      sessionID: options.sessionID,
-      text: `### ▣ Usage | No data received${filterMsg}.`,
-    })
-    return
-  }
-
-  const lines: string[] = ["## ▣ Usage Status", ""]
-
-  options.snapshots.forEach((snapshot, index) => {
-    const snapshotLines = formatSnapshot(snapshot)
-    for (const line of snapshotLines) lines.push(line)
-    if (index < options.snapshots.length - 1) {
-      lines.push("\n---")
     }
   })
 
