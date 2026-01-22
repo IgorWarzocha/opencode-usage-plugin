@@ -4,8 +4,12 @@
 
 import type { ProxyConfig, ProxyResponse } from "./types"
 
-export async function fetchProxyLimits(config: ProxyConfig): Promise<ProxyResponse> {
+export async function fetchProxyLimits(
+  config: ProxyConfig,
+  options?: { refresh?: boolean },
+): Promise<ProxyResponse> {
   const { endpoint, apiKey, timeout = 10000 } = config
+  const refresh = options?.refresh ?? false
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -23,9 +27,10 @@ export async function fetchProxyLimits(config: ProxyConfig): Promise<ProxyRespon
 
   try {
     const response = await fetch(url, {
-      method: "GET",
+      method: refresh ? "POST" : "GET",
       headers,
       signal: controller.signal,
+      body: refresh ? JSON.stringify({ action: "reload", scope: "all" }) : undefined,
     })
 
     if (!response.ok) {

@@ -28,7 +28,7 @@ export function createProxyLimitsTool(sendStatus: SendStatusFn, markSilent: Mark
       markSilent(context.sessionID, context.messageID)
       try {
         const config = await loadProxyConfig()
-        const data = await fetchProxyLimits(config)
+        const data = await fetchProxyLimits(config, { refresh: true })
         const message = formatProxyLimits(data)
 
         await sendStatus(context.sessionID, message)
