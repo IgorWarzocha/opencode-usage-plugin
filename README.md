@@ -104,6 +104,7 @@ The `modelGroups` section controls how quota groups are displayed:
 | `true` (default) | empty/missing | Show all groups with original names |
 | `true` | provided | Show all groups, apply display name overrides |
 | `false` | provided | Only show groups in displayNames (whitelist mode) |
+| `false` | empty/missing | Shows no groups (all filtered out) |
 | missing section | — | Legacy behavior (hardcoded group whitelist) |
 
 If missing, the plugin creates a default template on first run.
