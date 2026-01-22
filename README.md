@@ -75,9 +75,36 @@ Optional config at `~/.config/opencode/usage-config.jsonc`:
     "openai": true,
     "proxy": true,
     "copilot": true
+  },
+
+  // Model group display configuration (optional)
+  "modelGroups": {
+    // Show all model groups from proxy (default: true)
+    // When true: auto-discovers all groups, uses displayNames as overrides
+    // When false: only shows groups listed in displayNames (whitelist mode)
+    "showAll": true,
+
+    // Override display names for specific groups (optional)
+    // Groups not listed here use their original name from the proxy
+    "displayNames": {
+      "g3-pro": "Gemini Pro",
+      "g3-flash": "Gemini Flash",
+      "claude": "Claude"
+    }
   }
 }
 ```
+
+### Model Group Configuration
+
+The `modelGroups` section controls how quota groups are displayed:
+
+| `showAll` | `displayNames` | Behavior |
+|-----------|----------------|----------|
+| `true` (default) | empty/missing | Show all groups with original names |
+| `true` | provided | Show all groups, apply display name overrides |
+| `false` | provided | Only show groups in displayNames (whitelist mode) |
+| missing section | — | Legacy behavior (hardcoded group whitelist) |
 
 If missing, the plugin creates a default template on first run.
 

@@ -4,16 +4,17 @@
  */
 
 import type { UsageProvider } from "../base"
-import type { UsageSnapshot, ProxyQuota, ProxyProviderInfo, ProxyQuotaGroup, ProxyTierInfo } from "../../types"
+import type { UsageSnapshot, ProxyQuota, ProxyProviderInfo, ProxyQuotaGroup, ProxyTierInfo, UsageConfig } from "../../types"
 import { loadUsageConfig } from "../../usage/config"
 import { fetchProxyLimits } from "./fetch"
-import type { ProxyResponse, Provider, CredentialData, GroupUsage, TierWindow } from "./types"
+import type { ProxyResponse, Provider, CredentialData, GroupUsage } from "./types"
 
 export type { ProxyResponse } from "./types"
 export { fetchProxyLimits } from "./fetch"
 export { formatProxyLimits } from "./format"
 
-const GROUP_MAPPING: Record<string, string> = {
+/** Default mapping for backward compatibility when no modelGroups config is present */
+const DEFAULT_GROUP_MAPPING: Record<string, string> = {
   "claude": "claude",
   "g3-pro": "g3-pro",
   "g3-flash": "g3-flash",
@@ -38,6 +39,35 @@ function sortQuotaGroups(groups: ProxyQuotaGroup[]): ProxyQuotaGroup[] {
   })
 }
 
+/**
+ * Resolve the display name for a model group based on config.
+ * Returns null if the group should be filtered out.
+ */
+function resolveDisplayName(
+  groupName: string,
+  config: UsageConfig | null,
+): string | null {
+  const modelGroupsConfig = config?.modelGroups
+
+  // No config section → backward compat: use hardcoded whitelist
+  if (!modelGroupsConfig) {
+    return groupName in DEFAULT_GROUP_MAPPING
+      ? DEFAULT_GROUP_MAPPING[groupName]!
+      : null // filter out
+  }
+
+  const showAll = modelGroupsConfig.showAll ?? true // Default to auto-discovery
+  const displayNames = modelGroupsConfig.displayNames ?? {}
+
+  if (showAll) {
+    // Auto-discovery mode: show all, apply overrides
+    return displayNames[groupName] ?? groupName
+  } else {
+    // Whitelist mode: only show configured groups
+    return groupName in displayNames ? displayNames[groupName]! : null
+  }
+}
+
 function normalizeTier(tier?: string): "paid" | "free" {
   if (!tier) return "free"
   const t = tier.toLowerCase()
@@ -47,14 +77,16 @@ function normalizeTier(tier?: string): "paid" | "free" {
 
 function parseQuotaGroupsFromCredential(
   groupUsage: Record<string, GroupUsage> | undefined,
+  config: UsageConfig | null,
 ): ProxyQuotaGroup[] {
   if (!groupUsage) return []
 
   const result: Map<string, ProxyQuotaGroup> = new Map()
 
   for (const [groupName, groupData] of Object.entries(groupUsage)) {
-    const mappedName = GROUP_MAPPING[groupName]
-    if (!mappedName) continue
+    // Apply config-based filtering and display name resolution
+    const displayName = resolveDisplayName(groupName, config)
+    if (displayName === null) continue
 
     const windows = groupData.windows || {}
     let bestWindow: { limit?: number; remaining: number; reset_at?: number | null } | null = null
@@ -73,8 +105,8 @@ function parseQuotaGroupsFromCredential(
 
     if (!bestWindow) continue
 
-    result.set(mappedName, {
-      name: mappedName,
+    result.set(displayName, {
+      name: displayName,
       remaining: bestWindow.remaining,
       max: bestWindow.limit || bestWindow.remaining,
       remainingPct: bestWindow.limit ? Math.round((bestWindow.remaining / bestWindow.limit) * 100) : 0,
@@ -85,7 +117,7 @@ function parseQuotaGroupsFromCredential(
   return Array.from(result.values())
 }
 
-function aggregateByProvider(provider: Provider): ProxyTierInfo[] {
+function aggregateByProvider(provider: Provider, config: UsageConfig | null): ProxyTierInfo[] {
   const tiers: Record<"paid" | "free", Map<string, ProxyQuotaGroup>> = {
     paid: new Map(),
     free: new Map(),
@@ -94,7 +126,7 @@ function aggregateByProvider(provider: Provider): ProxyTierInfo[] {
   if (provider.credentials) {
     for (const cred of Object.values(provider.credentials)) {
       const tier = normalizeTier(cred.tier)
-      const groups = parseQuotaGroupsFromCredential(cred.group_usage)
+      const groups = parseQuotaGroupsFromCredential(cred.group_usage, config)
 
       for (const group of groups) {
         const existing = tiers[tier].get(group.name)
@@ -127,21 +159,21 @@ function aggregateByProvider(provider: Provider): ProxyTierInfo[] {
   return result
 }
 
-function parseProviders(data: ProxyResponse): ProxyProviderInfo[] {
+function parseProviders(data: ProxyResponse, config: UsageConfig | null): ProxyProviderInfo[] {
   if (!data.providers) return []
 
   return Object.entries(data.providers).map(([name, provider]) => {
     return {
       name,
-      tiers: aggregateByProvider(provider),
+      tiers: aggregateByProvider(provider, config),
     }
   })
 }
 
-function parseProxyQuota(data: ProxyResponse): ProxyQuota {
+function parseProxyQuota(data: ProxyResponse, config: UsageConfig | null): ProxyQuota {
   const summary = data.summary
   return {
-    providers: parseProviders(data),
+    providers: parseProviders(data, config),
     totalCredentials: summary?.total_credentials ?? 0,
     activeCredentials: summary?.active_credentials ?? 0,
     dataSource: data.data_source,
@@ -165,7 +197,7 @@ export const ProxyProvider: UsageProvider = {
         secondary: null,
         codeReview: null,
         credits: null,
-        proxyQuota: parseProxyQuota(data),
+        proxyQuota: parseProxyQuota(data, config),
         updatedAt: Date.now(),
       }
     } catch {

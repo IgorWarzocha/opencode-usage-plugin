@@ -2,6 +2,7 @@
  * Type definitions for the Antigravity proxy provider.
  */
 
+/** Token statistics from the proxy */
 export type TokenStats = {
   input_cached?: number
   input_uncached?: number
