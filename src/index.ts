@@ -25,6 +25,9 @@ export const UsagePlugin: Plugin = async ({ client }) => {
 
     state.availableProviders.proxy =
       proxyConfig?.providers?.proxy !== undefined ? proxyConfig.providers.proxy : Boolean(proxyConfig?.endpoint)
+
+    const authRecord = auths as Record<string, unknown>
+    state.availableProviders.copilot = Boolean(authRecord["github-copilot"] || authRecord["copilot"])
   } catch {}
 
   async function sendStatusMessage(sessionID: string, text: string): Promise<void> {

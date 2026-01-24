@@ -1,12 +1,23 @@
 {
   "name": "@howaboua/opencode-usage-plugin",
-  "version": "0.0.3",
-  "description": "OpenCode plugin for tracking AI provider usage, rate limits, and quotas",
+  "version": "0.0.4",
+  "description": "opencode plugin for tracking AI provider usage, rate limits, and quotas",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "files": ["dist", "README.md", "LICENSE"],
-  "keywords": ["opencode", "opencode-plugin", "plugin", "usage", "tracking", "rate-limit"],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "plugin",
+    "usage",
+    "tracking",
+    "rate-limit"
+  ],
   "license": "MIT",
   "peerDependencies": {
     "@opencode-ai/plugin": "^1.0.0"

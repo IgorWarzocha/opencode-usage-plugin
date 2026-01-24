@@ -32,6 +32,13 @@ export interface CreditsSnapshot {
   balance: string | null
 }
 
+export interface CopilotQuota {
+  used: number
+  total: number
+  percentRemaining: number
+  resetTime?: string | null
+}
+
 export interface ProxyQuotaGroup {
   name: string
   remaining: number
@@ -67,6 +74,8 @@ export interface UsageSnapshot {
   credits: CreditsSnapshot | null
   // Proxy specific fields
   proxyQuota?: ProxyQuota
+  // Copilot specific fields
+  copilotQuota?: CopilotQuota
   updatedAt: number
 }
 

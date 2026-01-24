@@ -59,6 +59,7 @@ export function commandHooks(options: {
         if (targetProvider) return true // User explicitly asked for it
         if (s.provider === "codex") return options.state.availableProviders.codex
         if (s.provider === "proxy") return options.state.availableProviders.proxy
+        if (s.provider === "copilot") return options.state.availableProviders.copilot
         return true
       })
 

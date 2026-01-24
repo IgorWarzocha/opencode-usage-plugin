@@ -30,6 +30,9 @@ export const providerAliases: Record<string, string> = {
   agy: "proxy",
   antigravity: "proxy",
   gemini: "proxy",
+  copilot: "copilot",
+  gh: "copilot",
+  github: "copilot",
 }
 
 export function resolveProviderFilter(filter?: string): string | undefined {
@@ -60,6 +63,21 @@ export async function fetchUsageSnapshots(filter?: string): Promise<UsageSnapsho
     if (proxyProvider?.fetchUsage) {
       fetches.push(
         proxyProvider
+          .fetchUsage(undefined)
+          .then((snapshot) => {
+            if (snapshot) snapshots.push(snapshot)
+          })
+          .catch(() => {}),
+      )
+    }
+  }
+
+  // Always include copilot if no filter or filter matches copilot
+  if (!targetProvider || targetProvider === "copilot") {
+    const copilotProvider = providers["copilot"]
+    if (copilotProvider?.fetchUsage) {
+      fetches.push(
+        copilotProvider
           .fetchUsage(undefined)
           .then((snapshot) => {
             if (snapshot) snapshots.push(snapshot)

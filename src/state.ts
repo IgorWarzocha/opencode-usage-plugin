@@ -10,6 +10,7 @@ export type UsageState = {
   availableProviders: {
     codex: boolean
     proxy: boolean
+    copilot: boolean
   }
 }
 
@@ -19,6 +20,7 @@ export function createUsageState(): UsageState {
     availableProviders: {
       codex: false,
       proxy: false,
+      copilot: false,
     },
   }
 }
