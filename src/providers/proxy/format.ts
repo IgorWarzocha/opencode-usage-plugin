@@ -2,7 +2,7 @@
  * Display formatting utilities for proxy limits.
  */
 
-import type { ProxyResponse, Credential, ModelGroup } from "./types"
+import type { ProxyResponse, CredentialData, GroupUsage } from "./types"
 
 const GROUP_MAPPING: Record<string, string> = {
   "claude": "claude",
@@ -47,7 +47,7 @@ type GroupQuota = {
   resetTime: string | null
 }
 
-function aggregateCredentialsByTier(credentials: Credential[]): Record<"paid" | "free", Map<string, GroupQuota>> {
+function aggregateCredentialsByTier(credentials: CredentialData[]): Record<"paid" | "free", Map<string, GroupQuota>> {
   const result = {
     paid: new Map<string, GroupQuota>(),
     free: new Map<string, GroupQuota>(),
@@ -55,26 +55,47 @@ function aggregateCredentialsByTier(credentials: Credential[]): Record<"paid" | 
 
   for (const cred of credentials) {
     const tier = normalizeTier(cred.tier)
-    const groups = cred.model_groups ?? {}
+    const groupUsage = cred.group_usage ?? {}
 
-    for (const [name, group] of Object.entries(groups)) {
+    for (const [name, groupData] of Object.entries(groupUsage)) {
       if (!(name in GROUP_MAPPING)) continue
       const mappedName = GROUP_MAPPING[name]!
 
+      // Find the best window from group_usage
+      const windows = groupData.windows || {}
+      let bestWindow: { limit?: number; remaining: number; reset_at?: number | null } | null = null
+
+      // Priority order for windows
+      const windowPriority = ["daily", "5h", "1h", "15m"]
+      for (const windowName of windowPriority) {
+        if (windows[windowName]) {
+          bestWindow = windows[windowName]
+          break
+        }
+      }
+
+      // Fallback to any available window
+      if (!bestWindow && Object.keys(windows).length > 0) {
+        bestWindow = Object.values(windows)[0]
+      }
+
+      if (!bestWindow) continue
+
       const existing = result[tier].get(mappedName)
       if (existing) {
-        existing.remaining += group.requests_remaining
-        existing.max += group.requests_max
-        if (group.reset_time_iso) {
-          if (!existing.resetTime || new Date(group.reset_time_iso) > new Date(existing.resetTime)) {
-            existing.resetTime = group.reset_time_iso
+        existing.remaining += bestWindow.remaining
+        existing.max += bestWindow.limit || 0
+        if (bestWindow.reset_at) {
+          const newResetTime = new Date(bestWindow.reset_at * 1000).toISOString()
+          if (!existing.resetTime || new Date(newResetTime) > new Date(existing.resetTime)) {
+            existing.resetTime = newResetTime
           }
         }
       } else {
         result[tier].set(mappedName, {
-          remaining: group.requests_remaining,
-          max: group.requests_max,
-          resetTime: group.reset_time_iso,
+          remaining: bestWindow.remaining,
+          max: bestWindow.limit || bestWindow.remaining,
+          resetTime: bestWindow.reset_at ? new Date(bestWindow.reset_at * 1000).toISOString() : null,
         })
       }
     }
@@ -97,7 +118,8 @@ export function formatProxyLimits(data: ProxyResponse): string {
   for (const [providerName, provider] of Object.entries(data.providers)) {
     lines.push(`${providerName}:`)
 
-    const tierData = aggregateCredentialsByTier(provider.credentials ?? [])
+    const credentialsArray = Object.values(provider.credentials ?? {})
+    const tierData = aggregateCredentialsByTier(credentialsArray)
 
     for (const [tierName, quotas] of Object.entries(tierData)) {
       if (quotas.size === 0) continue

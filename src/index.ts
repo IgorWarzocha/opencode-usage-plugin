@@ -1,12 +1,11 @@
 /**
  * Plugin entry point for Usage Tracking.
- * Wires hooks and tools for live usage snapshots.
+ * Wires hooks for live usage snapshots.
  */
 
 import type { Plugin } from "@opencode-ai/plugin"
-import { commandHooks, sessionHooks, proxyHooks, markSilent } from "./hooks"
+import { commandHooks, sessionHooks, proxyHooks } from "./hooks"
 import { createUsageState } from "./state"
-import { usageTool, createProxyLimitsTool } from "./tools"
 import { loadAuths } from "./usage/fetch"
 import { loadProxyConfig } from "./providers/proxy/config"
 
@@ -52,10 +51,6 @@ export const UsagePlugin: Plugin = async ({ client }) => {
     "command.execute.before": commandHookHandlers["command.execute.before"],
     ...sessionHooks(state),
     ...proxyHookHandlers,
-    tool: {
-      "usage.get": usageTool(),
-      "proxy-limits": createProxyLimitsTool(sendStatusMessage, markSilent),
-    },
   }
 }
 

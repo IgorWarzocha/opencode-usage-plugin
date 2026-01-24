@@ -14,26 +14,45 @@ export async function sendStatusMessage(options: {
   sessionID: string
   text: string
 }): Promise<void> {
-  const sent = await options.client.session
+  // 1. Send to Companion via Bus
+  // @ts-ignore
+  const bus = options.client.bus
+  if (bus) {
+    try {
+      await bus.publish({
+        topic: "companion.projection",
+        body: {
+          key: "usage",
+          kind: "markdown",
+          content: options.text,
+        },
+      })
+    } catch {}
+  }
+
+  // 2. Send plain message to TUI
+  await options.client.session
     .prompt({
       path: { id: options.sessionID },
       body: {
         noReply: true,
-        agent: options.state.agent,
-        model: options.state.model,
-        parts: [{ type: "text", text: options.text, ignored: true }],
+        parts: [
+          {
+            type: "text",
+            text: options.text,
+            ignored: true,
+          },
+        ],
       },
     })
-    .then(() => true)
-    .catch(() => false)
-
-  if (sent) return
-
-  await options.client.tui
-    .showToast({
-      body: { title: "Usage Status", message: options.text, variant: "info" },
+    .catch(async () => {
+      // 3. Fallback: Toast
+      await options.client.tui
+        .showToast({
+          body: { title: "Usage Status", message: options.text, variant: "info" },
+        })
+        .catch(() => {})
     })
-    .catch(() => {})
 }
 
 function formatBar(remainingPercent: number): string {

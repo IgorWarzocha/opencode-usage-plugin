@@ -7,7 +7,7 @@ import type { UsageProvider } from "../base"
 import type { UsageSnapshot, ProxyQuota, ProxyProviderInfo, ProxyQuotaGroup, ProxyTierInfo } from "../../types"
 import { loadProxyConfig } from "./config"
 import { fetchProxyLimits } from "./fetch"
-import type { ProxyResponse, Provider, Credential, ModelGroup } from "./types"
+import type { ProxyResponse, Provider, CredentialData, GroupUsage } from "./types"
 
 export type { ProxyConfig, ProxyResponse } from "./types"
 export { loadProxyConfig } from "./config"
@@ -18,8 +18,12 @@ const GROUP_MAPPING: Record<string, string> = {
   "claude": "claude",
   "g3-pro": "g3-pro",
   "g3-flash": "g3-fla",
+  "g25-flash": "25-flash",
+  "g25-lite": "25-lite",
   "pro": "g3-pro",
-  "3-flash": "g3-fla"
+  "3-flash": "g3-fla",
+  "25-flash": "25-flash",
+  "25-lite": "25-lite"
 }
 
 function normalizeTier(tier?: string): "paid" | "free" {
@@ -27,28 +31,67 @@ function normalizeTier(tier?: string): "paid" | "free" {
   return tier.includes("free") ? "free" : "paid"
 }
 
+/**
+ * Extract quota groups from group_usage data
+ * New API structure: group_usage[groupName].windows[windowName]
+ */
 function parseQuotaGroupsFromCredential(
-  modelGroups: Record<string, ModelGroup> | undefined,
+  groupUsage: Record<string, GroupUsage> | undefined,
 ): ProxyQuotaGroup[] {
-  if (!modelGroups) return []
-  return Object.entries(modelGroups)
-    .filter(([name]) => name in GROUP_MAPPING)
-    .map(([name, group]) => {
-      const realRemainingPct = group.requests_max > 0
-        ? Math.round((group.requests_remaining / group.requests_max) * 100)
-        : 0
+  if (!groupUsage) return []
 
-      return {
-        name: GROUP_MAPPING[name]!,
-        remaining: group.requests_remaining,
-        max: group.requests_max,
-        remainingPct: realRemainingPct,
-        resetTime: group.reset_time_iso,
+  const result: Map<string, ProxyQuotaGroup> = new Map()
+
+  for (const [groupName, groupData] of Object.entries(groupUsage)) {
+    const mappedName = GROUP_MAPPING[groupName]
+    if (!mappedName) continue
+
+    // Find the window with the best data (prefer daily, then 5h, then any)
+    const windows = groupData.windows || {}
+    let bestWindow: { limit?: number; remaining: number; reset_at?: number | null } | null = null
+
+    // Priority order for windows
+    const windowPriority = ["daily", "5h", "1h", "15m"]
+    for (const windowName of windowPriority) {
+      if (windows[windowName]) {
+        bestWindow = windows[windowName]
+        break
       }
-    })
+    }
+
+    // Fallback to any available window
+    if (!bestWindow && Object.keys(windows).length > 0) {
+      bestWindow = Object.values(windows)[0]
+    }
+
+    if (!bestWindow) continue
+
+    const existing = result.get(mappedName)
+    if (existing) {
+      existing.remaining += bestWindow.remaining
+      existing.max += bestWindow.limit || 0
+      // Use the latest reset time
+      if (bestWindow.reset_at) {
+        const newResetTime = new Date(bestWindow.reset_at * 1000).toISOString()
+        if (!existing.resetTime || new Date(newResetTime) > new Date(existing.resetTime)) {
+          existing.resetTime = newResetTime
+        }
+      }
+    } else {
+      result.set(mappedName, {
+        name: mappedName,
+        remaining: bestWindow.remaining,
+        max: bestWindow.limit || bestWindow.remaining,
+        remainingPct: bestWindow.limit ? Math.round((bestWindow.remaining / bestWindow.limit) * 100) : 0,
+        resetTime: bestWindow.reset_at ? new Date(bestWindow.reset_at * 1000).toISOString() : null,
+      })
+    }
+  }
+
+  return Array.from(result.values())
 }
 
-function aggregateByTier(credentials: Credential[]): ProxyTierInfo[] {
+function aggregateByTier(credentials: CredentialData[]): ProxyTierInfo[] {
   const tiers: Record<"paid" | "free", Map<string, ProxyQuotaGroup>> = {
     paid: new Map(),
     free: new Map(),
@@ -56,7 +99,7 @@ function aggregateByTier(credentials: Credential[]): ProxyTierInfo[] {
 
   for (const cred of credentials) {
     const tier = normalizeTier(cred.tier)
-    const groups = parseQuotaGroupsFromCredential(cred.model_groups)
+    const groups = parseQuotaGroupsFromCredential(cred.group_usage)
 
     for (const group of groups) {
       const existing = tiers[tier].get(group.name)
@@ -90,14 +133,20 @@ function aggregateByTier(credentials: Credential[]): ProxyTierInfo[] {
 
 function parseProviders(data: ProxyResponse): ProxyProviderInfo[] {
   if (!data.providers) return []
-  return Object.entries(data.providers).map(([name, provider]) => ({
-    name,
-    tiers: aggregateByTier(provider.credentials ?? []),
-  }))
+
+  return Object.entries(data.providers).map(([name, provider]) => {
+    // Convert credentials object to array
+    const credentialsArray = Object.values(provider.credentials || {})
+
+    return {
+      name,
+      tiers: aggregateByTier(credentialsArray),
+    }
+  })
 }
 
 function parseProxyQuota(data: ProxyResponse): ProxyQuota {
-  const summary = data.global_summary ?? data.summary
+  const summary = data.summary
   return {
     providers: parseProviders(data),
     totalCredentials: summary?.total_credentials ?? 0,

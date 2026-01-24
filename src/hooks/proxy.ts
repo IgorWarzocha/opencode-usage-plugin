@@ -1,6 +1,6 @@
 /**
- * Hooks for proxy-limits functionality.
- * Manages silent responses after tool execution.
+ * Hooks for usage status display.
+ * Manages silent responses after command execution if needed.
  */
 
 const silence = new Map<string, Set<string>>()

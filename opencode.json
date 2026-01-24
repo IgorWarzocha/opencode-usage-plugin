@@ -1,4 +1,4 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": ["file:///home/igorw/Work/opencode-plugins-dev/usage/index.ts"]
+  "plugin": ["./dist/index.js"]
 }

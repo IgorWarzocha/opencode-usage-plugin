@@ -44,7 +44,13 @@ export async function loadProxyConfig(): Promise<ProxyConfig> {
 
   try {
     const content = await file.text()
-    const cleanJson = content.replace(/(\".*?\"|\'.*?\')|(\/\/.*|\/\*[\s\S]*?\*\/)/g, (m, g1) => g1 ?? "")
+    // Remove comments first (both // and /* */)
+    const withoutComments = content.replace(
+      /(\".*?\"|\'.*?\')|(\/\/.*|\/\*[\s\S]*?\*\/)/g,
+      (m, g1) => g1 ?? ""
+    )
+    // Remove trailing commas before closing brackets/braces
+    const cleanJson = withoutComments.replace(/,(\s*[}\]])/g, "$1")
     const config = JSON.parse(cleanJson) as ProxyConfig
 
     if (!config.endpoint) {
