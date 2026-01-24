@@ -1,13 +1,19 @@
-import { existsSync, readFileSync } from "fs"
-import { readFile } from "fs/promises"
-import { homedir } from "os"
-import { join } from "path"
+/**
+ * providers/copilot/index.ts
+ * Main entry point for the GitHub Copilot usage provider.
+ * Orchestrates token exchange and fetching from public and internal APIs.
+ */
+
 import type { UsageProvider } from "../base.js"
 import type { UsageSnapshot, CopilotQuota } from "../../types.js"
-
-// =============================================================================
-// Constants
-// =============================================================================
+import { COPILOT_PLAN_LIMITS } from "./types.js"
+import { readCopilotAuth, readQuotaConfig } from "./auth.js"
+import {
+  toCopilotQuotaFromBilling,
+  toCopilotQuotaFromInternal,
+  type BillingUsageResponse,
+  type CopilotInternalUserResponse,
+} from "./response.js"
 
 const GITHUB_API_BASE_URL = "https://api.github.com"
 const COPILOT_INTERNAL_USER_URL = `${GITHUB_API_BASE_URL}/copilot_internal/user`
@@ -27,60 +33,6 @@ const COPILOT_HEADERS: Record<string, string> = {
 
 const REQUEST_TIMEOUT_MS = 3000
 
-// =============================================================================
-// Types
-// =============================================================================
-
-export type CopilotTier = "free" | "pro" | "pro+" | "business" | "enterprise"
-
-export interface CopilotQuotaConfig {
-  token: string
-  username: string
-  tier: CopilotTier
-}
-
-export interface CopilotAuthData {
-  type: string
-  refresh?: string
-  access?: string
-  expires?: number
-}
-
-interface QuotaDetail {
-  entitlement: number
-  percent_remaining: number
-  remaining: number
-  unlimited: boolean
-}
-
-interface CopilotUsageResponse {
-  quota_reset_date: string
-  quota_snapshots: {
-    premium_interactions: QuotaDetail
-  }
-}
-
-interface BillingUsageItem {
-  sku: string
-  grossQuantity: number
-}
-
-interface BillingUsageResponse {
-  usageItems: BillingUsageItem[]
-}
-
-const COPILOT_PLAN_LIMITS: Record<CopilotTier, number> = {
-  free: 50,
-  pro: 300,
-  "pro+": 1500,
-  business: 300,
-  enterprise: 1000,
-}
-
-// =============================================================================
-// Helpers
-// =============================================================================
-
 async function fetchWithTimeout(
   url: string,
   options: RequestInit,
@@ -96,74 +48,6 @@ async function fetchWithTimeout(
     })
   } finally {
     clearTimeout(timeoutId)
-  }
-}
-
-function getAuthPath(): string {
-  const home = homedir()
-  const dataDir =
-    process.platform === "win32"
-      ? process.env.LOCALAPPDATA || join(home, "AppData", "Local")
-      : join(home, ".local", "share")
-  return join(dataDir, "opencode", "auth.json")
-}
-
-function getUsageTokenPath(): string {
-  const home = homedir()
-  const dataDir =
-    process.platform === "win32"
-      ? process.env.LOCALAPPDATA || join(home, "AppData", "Local")
-      : join(home, ".local", "share")
-  return join(dataDir, "opencode", "copilot-usage-token.json")
-}
-
-async function readCopilotAuth(): Promise<CopilotAuthData | null> {
-  try {
-    // Try primary source: copilot-usage-token.json
-    const usagePath = getUsageTokenPath()
-    if (existsSync(usagePath)) {
-      const content = await readFile(usagePath, "utf-8")
-      const data = JSON.parse(content)
-      if (data?.token) {
-        return {
-          type: "oauth",
-          refresh: data.token,
-          access: data.token,
-        }
-      }
-    }
-
-    // Fallback to standard auth.json
-    const authPath = getAuthPath()
-    if (existsSync(authPath)) {
-      const content = await readFile(authPath, "utf-8")
-      const authData = JSON.parse(content)
-      const copilotAuth = authData?.["github-copilot"]
-      if (copilotAuth) {
-        return copilotAuth
-      }
-    }
-    return null
-  } catch {
-    return null
-  }
-}
-
-function readQuotaConfig(): CopilotQuotaConfig | null {
-  try {
-    const configPath = join(
-      process.env.XDG_CONFIG_HOME || join(homedir(), ".config"),
-      "opencode",
-      "copilot-quota-token.json",
-    )
-    if (!existsSync(configPath)) return null
-
-    const content = readFileSync(configPath, "utf-8")
-    const parsed = JSON.parse(content) as CopilotQuotaConfig
-    if (!parsed?.token || !parsed?.username || !parsed?.tier) return null
-    return parsed
-  } catch {
-    return null
   }
 }
 
@@ -185,10 +69,6 @@ async function exchangeForCopilotToken(oauthToken: string): Promise<string | nul
   }
 }
 
-// =============================================================================
-// Provider Implementation
-// =============================================================================
-
 export const CopilotProvider: UsageProvider<void> = {
   id: "copilot",
   displayName: "GitHub Copilot",
@@ -197,7 +77,6 @@ export const CopilotProvider: UsageProvider<void> = {
     const now = Date.now()
     let quota: CopilotQuota | null = null
 
-    // Strategy 1: Public Billing API
     const config = readQuotaConfig()
     if (config) {
       try {
@@ -213,87 +92,42 @@ export const CopilotProvider: UsageProvider<void> = {
         )
         if (resp.ok) {
           const data = (await resp.json()) as BillingUsageResponse
-          const items = Array.isArray(data.usageItems) ? data.usageItems : []
-          const used = items
-            .filter((i) => i.sku === "Copilot Premium Request" || i.sku.includes("Premium"))
-            .reduce((sum, i) => sum + (i.grossQuantity || 0), 0)
-          const total = COPILOT_PLAN_LIMITS[config.tier]
-          const remaining = Math.max(0, total - used)
-
-          quota = {
-            used,
-            total,
-            percentRemaining: Math.round((remaining / total) * 100),
-            resetTime: new Date(
-              Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth() + 1, 1),
-            ).toISOString(),
-          }
+          quota = toCopilotQuotaFromBilling(data, COPILOT_PLAN_LIMITS[config.tier])
         }
       } catch {
         // Fallback to internal API
       }
     }
 
-    // Strategy 2: Internal API
     if (!quota) {
       const auth = await readCopilotAuth()
-      if (auth) {
+      const oauthToken = auth?.refresh || auth?.access
+      if (oauthToken) {
         try {
-          const oauthToken = auth.refresh || auth.access
-          if (oauthToken) {
-            // Try Strategy A: Direct call with OAuth token (legacy format)
-            let resp = await fetchWithTimeout(COPILOT_INTERNAL_USER_URL, {
-              headers: {
-                Accept: "application/json",
-                Authorization: `token ${oauthToken}`,
-                ...COPILOT_HEADERS,
-              },
-            })
+          let resp = await fetchWithTimeout(COPILOT_INTERNAL_USER_URL, {
+            headers: {
+              Accept: "application/json",
+              Authorization: `token ${oauthToken}`,
+              ...COPILOT_HEADERS,
+            },
+          })
 
-            // Strategy B: Token Exchange (new format)
-            if (!resp.ok) {
-              const copilotToken = await exchangeForCopilotToken(oauthToken)
-              if (copilotToken) {
-                resp = await fetchWithTimeout(COPILOT_INTERNAL_USER_URL, {
-                  headers: {
-                    Accept: "application/json",
-                    Authorization: `Bearer ${copilotToken}`,
-                    ...COPILOT_HEADERS,
-                  },
-                })
-              }
+          if (!resp.ok) {
+            const copilotToken = await exchangeForCopilotToken(oauthToken)
+            if (copilotToken) {
+              resp = await fetchWithTimeout(COPILOT_INTERNAL_USER_URL, {
+                headers: {
+                  Accept: "application/json",
+                  Authorization: `Bearer ${copilotToken}`,
+                  ...COPILOT_HEADERS,
+                },
+              })
             }
+          }
 
-            if (resp.ok) {
-              const data = (await resp.json()) as any
-              
-              // Handle "limited" user format (Free/Pro limited)
-              if (data.limited_user_quotas) {
-                // The API returns 'remaining' counts in limited_user_quotas.
-                const remaining = data.limited_user_quotas.chat ?? 0;
-                // For Copilot Free, the 'total' is 50 premium requests.
-                // The 'monthly_quotas.chat' value in the API (500) is often a legacy or different internal metric.
-                // According to GitHub docs, Copilot Free has 50 premium requests.
-                const total = 50;
-                
-                quota = {
-                  used: Math.max(0, total - remaining),
-                  total: total,
-                  percentRemaining: Math.round((remaining / total) * 100),
-                  resetTime: data.limited_user_reset_date || data.quota_reset_date,
-                }
-              } 
-              // Handle standard format
-              else if (data.quota_snapshots?.premium_interactions) {
-                const premium = data.quota_snapshots.premium_interactions
-                quota = {
-                  used: premium.unlimited ? 0 : premium.entitlement - premium.remaining,
-                  total: premium.unlimited ? -1 : premium.entitlement,
-                  percentRemaining: Math.round(premium.percent_remaining),
-                  resetTime: data.quota_reset_date,
-                }
-              }
-            }
+          if (resp.ok) {
+            const data = (await resp.json()) as CopilotInternalUserResponse
+            quota = toCopilotQuotaFromInternal(data)
           }
         } catch {
           // Ignore
