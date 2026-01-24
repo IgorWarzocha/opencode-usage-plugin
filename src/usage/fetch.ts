@@ -57,33 +57,21 @@ export async function fetchUsageSnapshots(filter?: string): Promise<UsageSnapsho
       if (snapshot) snapshots.push(snapshot)
     })
 
-  // Always include proxy if no filter or filter matches proxy
-  if (!targetProvider || targetProvider === "proxy") {
-    const proxyProvider = providers["proxy"]
-    if (proxyProvider?.fetchUsage) {
-      fetches.push(
-        proxyProvider
-          .fetchUsage(undefined)
-          .then((snapshot) => {
-            if (snapshot) snapshots.push(snapshot)
-          })
-          .catch(() => {}),
-      )
-    }
-  }
-
-  // Always include copilot if no filter or filter matches copilot
-  if (!targetProvider || targetProvider === "copilot") {
-    const copilotProvider = providers["copilot"]
-    if (copilotProvider?.fetchUsage) {
-      fetches.push(
-        copilotProvider
-          .fetchUsage(undefined)
-          .then((snapshot) => {
-            if (snapshot) snapshots.push(snapshot)
-          })
-          .catch(() => {}),
-      )
+  // Always include special providers (no auth entries needed) if no filter or filter matches
+  const specialProviders = ["proxy", "copilot"]
+  for (const id of specialProviders) {
+    if (!targetProvider || targetProvider === id) {
+      const provider = providers[id]
+      if (provider?.fetchUsage) {
+        fetches.push(
+          provider
+            .fetchUsage(undefined)
+            .then((snapshot) => {
+              if (snapshot) snapshots.push(snapshot)
+            })
+            .catch(() => {}),
+        )
+      }
     }
   }
 

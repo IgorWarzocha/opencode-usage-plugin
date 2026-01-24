@@ -133,9 +133,12 @@ function formatCopilotSnapshot(snapshot: UsageSnapshot): string[] {
 
   if (copilot.completionsUsed !== undefined && copilot.completionsTotal !== undefined) {
     const compLabel = "Completions:".padEnd(13)
-    const compPct = Math.round(
-      ((copilot.completionsTotal - copilot.completionsUsed) / copilot.completionsTotal) * 100,
-    )
+    const compPct =
+      copilot.completionsTotal > 0
+        ? Math.round(
+            ((copilot.completionsTotal - copilot.completionsUsed) / copilot.completionsTotal) * 100,
+          )
+        : 0
     lines.push(
       `  ${compLabel} ${formatBar(compPct)} ${copilot.completionsUsed}/${copilot.completionsTotal}`,
     )

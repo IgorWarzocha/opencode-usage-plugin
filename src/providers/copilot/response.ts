@@ -47,7 +47,7 @@ export function toCopilotQuotaFromInternal(data: CopilotInternalUserResponse): C
     return {
       used: Math.max(0, chatTotal - chatRemaining),
       total: chatTotal,
-      percentRemaining: Math.round((chatRemaining / chatTotal) * 100),
+      percentRemaining: chatTotal > 0 ? Math.round((chatRemaining / chatTotal) * 100) : 0,
       resetTime: data.limited_user_reset_date || data.quota_reset_date,
       completionsUsed: Math.max(0, completionsTotal - completionsRemaining),
       completionsTotal: completionsTotal,

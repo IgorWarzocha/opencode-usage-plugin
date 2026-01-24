@@ -8,24 +8,11 @@ import { existsSync, readFileSync } from "fs"
 import { readFile } from "fs/promises"
 import { homedir } from "os"
 import { join } from "path"
+import { getAppDataPath, getAuthFilePath } from "../../utils/paths.js"
 import { type CopilotAuthData, type CopilotQuotaConfig } from "./types.js"
 
-function getAuthPath(): string {
-  const home = homedir()
-  const dataDir =
-    process.platform === "win32"
-      ? process.env.LOCALAPPDATA || join(home, "AppData", "Local")
-      : join(home, ".local", "share")
-  return join(dataDir, "opencode", "auth.json")
-}
-
 function getUsageTokenPath(): string {
-  const home = homedir()
-  const dataDir =
-    process.platform === "win32"
-      ? process.env.LOCALAPPDATA || join(home, "AppData", "Local")
-      : join(home, ".local", "share")
-  return join(dataDir, "opencode", "copilot-usage-token.json")
+  return join(getAppDataPath(), "copilot-usage-token.json")
 }
 
 export async function readCopilotAuth(): Promise<CopilotAuthData | null> {
@@ -43,11 +30,11 @@ export async function readCopilotAuth(): Promise<CopilotAuthData | null> {
       }
     }
 
-    const authPath = getAuthPath()
+    const authPath = getAuthFilePath()
     if (existsSync(authPath)) {
       const content = await readFile(authPath, "utf-8")
       const authData = JSON.parse(content)
-      const copilotAuth = authData?.["github-copilot"]
+      const copilotAuth = authData?.["github-copilot"] || authData?.["copilot"]
       if (copilotAuth) {
         return copilotAuth
       }
