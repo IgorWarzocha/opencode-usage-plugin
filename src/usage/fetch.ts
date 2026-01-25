@@ -61,6 +61,9 @@ export async function fetchUsageSnapshots(filter?: string): Promise<UsageSnapsho
   const specialProviders = ["proxy", "copilot"]
   for (const id of specialProviders) {
     if (!targetProvider || targetProvider === id) {
+      // Avoid duplicate fetches if the provider was already handled via auth entries
+      if (entries.some(e => e.providerID === id)) continue;
+
       const provider = providers[id]
       if (provider?.fetchUsage) {
         fetches.push(
@@ -75,7 +78,7 @@ export async function fetchUsageSnapshots(filter?: string): Promise<UsageSnapsho
     }
   }
 
-  await Promise.race([Promise.all(fetches), timeout(5000)])
+  await Promise.allSettled(fetches)
   return snapshots
 }
 
