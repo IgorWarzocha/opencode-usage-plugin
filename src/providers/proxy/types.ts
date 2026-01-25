@@ -10,6 +10,7 @@ export type ProxyConfig = {
   providers?: {
     openai?: boolean
     proxy?: boolean
+    copilot?: boolean
   }
 }
 

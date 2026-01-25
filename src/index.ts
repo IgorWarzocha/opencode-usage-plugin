@@ -30,16 +30,16 @@ export const UsagePlugin: Plugin = async ({ client }) => {
       proxyConfig?.providers?.proxy !== undefined ? proxyConfig.providers.proxy : Boolean(proxyConfig?.endpoint)
 
     const authRecord = auths as Record<string, unknown>
-    const copilotAvailable = Boolean(
-      authRecord["github-copilot"] ||
-        authRecord["copilot"] ||
-        existsSync(getQuotaConfigPath()) ||
-        existsSync(getUsageTokenPath()),
-    )
-    state.availableProviders.copilot = copilotAvailable
-    console.error(`[UsagePlugin] Copilot detected: ${copilotAvailable}`)
+    state.availableProviders.copilot =
+      proxyConfig?.providers?.copilot !== undefined
+        ? proxyConfig.providers.copilot
+        : Boolean(
+            authRecord["github-copilot"] ||
+              authRecord["copilot"] ||
+              existsSync(getQuotaConfigPath()) ||
+              existsSync(getUsageTokenPath()),
+          )
   } catch (err) {
-    console.error(`[UsagePlugin] Init error: ${err}`)
   }
 
   async function sendStatusMessage(sessionID: string, text: string): Promise<void> {
