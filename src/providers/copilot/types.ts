@@ -6,12 +6,6 @@
 
 export type CopilotTier = "free" | "pro" | "pro+" | "business" | "enterprise"
 
-export interface CopilotQuotaConfig {
-  token: string
-  username: string
-  tier: CopilotTier
-}
-
 export interface CopilotAuthData {
   type: string
   refresh?: string

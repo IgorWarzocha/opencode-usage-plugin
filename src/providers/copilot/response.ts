@@ -47,11 +47,13 @@ export function toCopilotQuotaFromInternal(data: CopilotInternalUserResponse): C
     const chatRemaining = Math.floor(chatRemainingRaw / chatScale)
     const chatTotal = Math.floor(chatTotalRaw / chatScale)
 
+    const completionsRemainingRaw = data.limited_user_quotas.completions ?? 0
+    const completionsTotalRaw = data.monthly_quotas?.completions ?? 2000
+    
     // Scaling for Completions: 4000 units in API = 2000 actual requests
-    const compTotalRaw = data.monthly_quotas?.completions ?? 2000
-    const compScale = compTotalRaw === 4000 ? 2 : 1
-    const completionsRemaining = Math.floor((data.limited_user_quotas.completions ?? 0) / compScale)
-    const completionsTotal = Math.floor(compTotalRaw / compScale)
+    const compScale = completionsTotalRaw === 4000 ? 2 : 1
+    const completionsRemaining = Math.floor(completionsRemainingRaw / compScale)
+    const completionsTotal = Math.floor(completionsTotalRaw / compScale)
 
     return {
       used: chatRemaining,

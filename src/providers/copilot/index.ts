@@ -1,17 +1,14 @@
 /**
  * providers/copilot/index.ts
  * Main entry point for the GitHub Copilot usage provider.
- * Orchestrates token exchange and fetching from public and internal APIs.
+ * Orchestrates token exchange and fetching from the internal API.
  */
 
 import type { UsageProvider } from "../base.js"
 import type { UsageSnapshot, CopilotQuota } from "../../types.js"
-import { COPILOT_PLAN_LIMITS } from "./types.js"
-import { readCopilotAuth, readQuotaConfig } from "./auth.js"
+import { readCopilotAuth } from "./auth.js"
 import {
-  toCopilotQuotaFromBilling,
   toCopilotQuotaFromInternal,
-  type BillingUsageResponse,
   type CopilotInternalUserResponse,
 } from "./response.js"
 
@@ -77,62 +74,37 @@ export const CopilotProvider: UsageProvider<void> = {
     const now = Date.now()
     let quota: CopilotQuota | null = null
 
-    const config = readQuotaConfig()
-    if (config) {
+    const auth = await readCopilotAuth()
+    const oauthToken = auth?.refresh || auth?.access
+    if (oauthToken) {
       try {
-        const resp = await fetchWithTimeout(
-          `${GITHUB_API_BASE_URL}/users/${config.username}/settings/billing/premium_request/usage`,
-          {
-            headers: {
-              Accept: "application/vnd.github+json",
-              Authorization: `Bearer ${config.token}`,
-              "X-GitHub-Api-Version": "2022-11-28",
-            },
+        let resp = await fetchWithTimeout(COPILOT_INTERNAL_USER_URL, {
+          headers: {
+            Accept: "application/json",
+            Authorization: `token ${oauthToken}`,
+            ...COPILOT_HEADERS,
           },
-        )
+        })
+
+        if (!resp.ok) {
+          const copilotToken = await exchangeForCopilotToken(oauthToken)
+          if (copilotToken) {
+            resp = await fetchWithTimeout(COPILOT_INTERNAL_USER_URL, {
+              headers: {
+                Accept: "application/json",
+                Authorization: `Bearer ${copilotToken}`,
+                ...COPILOT_HEADERS,
+              },
+            })
+          }
+        }
+
         if (resp.ok) {
-          const data = (await resp.json()) as BillingUsageResponse
-          quota = toCopilotQuotaFromBilling(data, COPILOT_PLAN_LIMITS[config.tier])
+          const data = (await resp.json()) as CopilotInternalUserResponse
+          quota = toCopilotQuotaFromInternal(data)
         }
       } catch {
-        // Fallback to internal API
-      }
-    }
-
-    if (!quota) {
-      const auth = await readCopilotAuth()
-      const oauthToken = auth?.refresh || auth?.access
-      if (oauthToken) {
-        try {
-          let resp = await fetchWithTimeout(COPILOT_INTERNAL_USER_URL, {
-            headers: {
-              Accept: "application/json",
-              Authorization: `token ${oauthToken}`,
-              ...COPILOT_HEADERS,
-            },
-          })
-
-          if (!resp.ok) {
-            const copilotToken = await exchangeForCopilotToken(oauthToken)
-            if (copilotToken) {
-              resp = await fetchWithTimeout(COPILOT_INTERNAL_USER_URL, {
-                headers: {
-                  Accept: "application/json",
-                  Authorization: `Bearer ${copilotToken}`,
-                  ...COPILOT_HEADERS,
-                },
-              })
-            }
-          }
-
-          if (resp.ok) {
-            const data = (await resp.json()) as CopilotInternalUserResponse
-            
-            quota = toCopilotQuotaFromInternal(data)
-          }
-        } catch {
-          // Ignore
-        }
+        // Ignore
       }
     }
 
