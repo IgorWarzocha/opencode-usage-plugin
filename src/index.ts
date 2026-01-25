@@ -7,7 +7,9 @@ import type { Plugin } from "@opencode-ai/plugin"
 import { commandHooks, sessionHooks, proxyHooks } from "./hooks"
 import { createUsageState } from "./state"
 import { loadAuths } from "./usage/fetch"
-import { loadProxyConfig } from "./providers/proxy/config"
+import { loadUsageConfig } from "./usage/config"
+import type { UsageConfig } from "./types"
+import type { AuthRecord } from "./usage/registry"
 
 import { existsSync } from "fs"
 import { getQuotaConfigPath, getUsageTokenPath } from "./providers/copilot/auth"
@@ -16,31 +18,30 @@ export const UsagePlugin: Plugin = async ({ client }) => {
   const state = createUsageState()
 
   try {
-    const [auths, proxyConfig] = await Promise.all([
-      loadAuths().catch(() => ({})),
-      loadProxyConfig().catch(() => null),
+    const [auths, usageConfig] = await Promise.all([
+      loadAuths().catch(() => ({} as AuthRecord)),
+      loadUsageConfig().catch(() => ({} as UsageConfig)),
     ])
 
     state.availableProviders.codex =
-      proxyConfig?.providers?.openai !== undefined
-        ? proxyConfig.providers.openai
-        : Boolean("codex" in auths && auths["codex"] || "openai" in auths && auths["openai"])
+      usageConfig?.providers?.openai !== undefined
+        ? usageConfig.providers.openai
+        : Boolean(("codex" in auths && auths["codex"]) || ("openai" in auths && auths["openai"]))
 
     state.availableProviders.proxy =
-      proxyConfig?.providers?.proxy !== undefined ? proxyConfig.providers.proxy : Boolean(proxyConfig?.endpoint)
+      usageConfig?.providers?.proxy !== undefined ? usageConfig.providers.proxy : Boolean(usageConfig?.endpoint)
 
     const authRecord = auths as Record<string, unknown>
     state.availableProviders.copilot =
-      proxyConfig?.providers?.copilot !== undefined
-        ? proxyConfig.providers.copilot
+      usageConfig?.providers?.copilot !== undefined
+        ? usageConfig.providers.copilot
         : Boolean(
             authRecord["github-copilot"] ||
               authRecord["copilot"] ||
               existsSync(getQuotaConfigPath()) ||
               existsSync(getUsageTokenPath()),
           )
-  } catch (err) {
-  }
+  } catch (err) {}
 
   async function sendStatusMessage(sessionID: string, text: string): Promise<void> {
     await client.session.prompt({

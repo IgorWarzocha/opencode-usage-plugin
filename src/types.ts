@@ -66,6 +66,17 @@ export interface ProxyQuota {
   dataSource: string
 }
 
+export interface UsageConfig {
+  endpoint?: string
+  apiKey?: string
+  timeout?: number
+  providers?: {
+    openai?: boolean
+    proxy?: boolean
+    copilot?: boolean
+  }
+}
+
 export interface UsageSnapshot {
   timestamp: number
   provider: string

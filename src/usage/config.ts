@@ -1,12 +1,14 @@
 /**
- * Configuration management for the proxy provider.
+ * Configuration management for the Usage Plugin.
  */
 
-import type { ProxyConfig } from "./types"
+import { join } from "path"
+import { homedir } from "os"
+import type { UsageConfig } from "../types"
 
-const CONFIG_PATH = `${process.env.HOME}/.config/opencode/usage-config.jsonc`
+const CONFIG_PATH = join(homedir(), ".config", "opencode", "usage-config.jsonc")
 
-export async function loadProxyConfig(): Promise<ProxyConfig> {
+export async function loadUsageConfig(): Promise<UsageConfig> {
   const file = Bun.file(CONFIG_PATH)
 
   if (!(await file.exists())) {
@@ -14,11 +16,11 @@ export async function loadProxyConfig(): Promise<ProxyConfig> {
  * Usage Plugin Configuration
  */
 {
-  // Proxy endpoint
-  "endpoint": "http://localhost:8000",
+  // Proxy endpoint (e.g. http://localhost:8000)
+  "endpoint": "",
 
   // API key for authentication
-  "apiKey": "VerysecretKey",
+  "apiKey": "",
 
   // Request timeout in milliseconds
   "timeout": 10000,
@@ -26,18 +28,20 @@ export async function loadProxyConfig(): Promise<ProxyConfig> {
   // Provider visibility
   "providers": {
     "openai": true,
-    "proxy": true
+    "proxy": true,
+    "copilot": true
   }
 }
 `
     await Bun.write(CONFIG_PATH, content)
     return {
-      endpoint: "http://localhost:8000",
-      apiKey: "VerysecretKey",
+      endpoint: "",
+      apiKey: "",
       timeout: 10000,
       providers: {
         openai: true,
         proxy: true,
+        copilot: true,
       },
     }
   }
@@ -51,11 +55,7 @@ export async function loadProxyConfig(): Promise<ProxyConfig> {
     )
     // Remove trailing commas before closing brackets/braces
     const cleanJson = withoutComments.replace(/,(\s*[}\]])/g, "$1")
-    const config = JSON.parse(cleanJson) as ProxyConfig
-
-    if (!config.endpoint) {
-      throw new Error('Config must contain "endpoint" field')
-    }
+    const config = JSON.parse(cleanJson) as UsageConfig
 
     return config
   } catch (error: unknown) {

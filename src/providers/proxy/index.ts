@@ -5,12 +5,11 @@
 
 import type { UsageProvider } from "../base"
 import type { UsageSnapshot, ProxyQuota, ProxyProviderInfo, ProxyQuotaGroup, ProxyTierInfo } from "../../types"
-import { loadProxyConfig } from "./config"
+import { loadUsageConfig } from "../../usage/config"
 import { fetchProxyLimits } from "./fetch"
 import type { ProxyResponse, Provider, CredentialData, GroupUsage } from "./types"
 
-export type { ProxyConfig, ProxyResponse } from "./types"
-export { loadProxyConfig } from "./config"
+export type { ProxyResponse } from "./types"
 export { fetchProxyLimits } from "./fetch"
 export { formatProxyLimits } from "./format"
 
@@ -179,7 +178,7 @@ export const ProxyProvider: UsageProvider = {
 
   async fetchUsage(): Promise<UsageSnapshot | null> {
     try {
-      const config = await loadProxyConfig()
+      const config = await loadUsageConfig()
       const data = await fetchProxyLimits(config)
 
       return {

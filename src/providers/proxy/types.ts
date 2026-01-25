@@ -3,17 +3,6 @@
  */
 
 /** Configuration stored in ~/.config/opencode/usage-config.jsonc */
-export type ProxyConfig = {
-  endpoint: string
-  apiKey?: string
-  timeout?: number
-  providers?: {
-    openai?: boolean
-    proxy?: boolean
-    copilot?: boolean
-  }
-}
-
 /** Token statistics from the proxy */
 export type TokenStats = {
   input_cached?: number

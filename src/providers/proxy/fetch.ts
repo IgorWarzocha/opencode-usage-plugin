@@ -2,10 +2,15 @@
  * HTTP client for fetching proxy quota stats.
  */
 
-import type { ProxyConfig, ProxyResponse } from "./types"
+import type { ProxyResponse } from "./types"
+import type { UsageConfig } from "../../types"
 
-export async function fetchProxyLimits(config: ProxyConfig): Promise<ProxyResponse> {
+export async function fetchProxyLimits(config: UsageConfig): Promise<ProxyResponse> {
   const { endpoint, apiKey, timeout = 10000 } = config
+
+  if (!endpoint) {
+    throw new Error("Proxy endpoint not configured")
+  }
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
