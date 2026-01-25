@@ -127,6 +127,7 @@ export const CopilotProvider: UsageProvider<void> = {
 
           if (resp.ok) {
             const data = (await resp.json()) as CopilotInternalUserResponse
+            
             quota = toCopilotQuotaFromInternal(data)
           }
         } catch {

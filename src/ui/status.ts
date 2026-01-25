@@ -129,15 +129,16 @@ function formatCopilotSnapshot(snapshot: UsageSnapshot): string[] {
   const totalLabel = copilot.total === -1 ? "∞" : copilot.total.toString()
   const chatLabel = "Chat:".padEnd(13)
 
-  lines.push(`  ${chatLabel} ${formatBar(copilot.percentRemaining)} ${copilot.used}/${totalLabel}${resetSuffix}`)
+  const chatRemaining = copilot.used;
+  const chatPct = copilot.percentRemaining;
+
+  lines.push(`  ${chatLabel} ${formatBar(chatPct)} ${chatRemaining}/${totalLabel}${resetSuffix}`)
 
   if (copilot.completionsUsed !== undefined && copilot.completionsTotal !== undefined) {
     const compLabel = "Completions:".padEnd(13)
     const compPct =
       copilot.completionsTotal > 0
-        ? Math.round(
-            ((copilot.completionsTotal - copilot.completionsUsed) / copilot.completionsTotal) * 100,
-          )
+        ? Math.round((copilot.completionsUsed / copilot.completionsTotal) * 100)
         : 0
     lines.push(
       `  ${compLabel} ${formatBar(compPct)} ${copilot.completionsUsed}/${copilot.completionsTotal}`,

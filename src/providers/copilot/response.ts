@@ -39,27 +39,44 @@ export interface BillingUsageResponse {
 export function toCopilotQuotaFromInternal(data: CopilotInternalUserResponse): CopilotQuota | null {
   // Handle "limited" user format (Free/Pro limited)
   if (data.limited_user_quotas) {
-    const chatRemaining = data.limited_user_quotas.chat ?? 0
-    const chatTotal = data.monthly_quotas?.chat ?? 50
-    const completionsRemaining = data.limited_user_quotas.completions ?? 0
-    const completionsTotal = data.monthly_quotas?.completions ?? 2000
+    const chatRemainingRaw = data.limited_user_quotas.chat ?? 0
+    const chatTotalRaw = data.monthly_quotas?.chat ?? 0
+    
+    // Scaling for Chat: 500 units in API = 50 actual requests
+    const chatScale = chatTotalRaw === 500 ? 10 : 1
+    const chatRemaining = Math.floor(chatRemainingRaw / chatScale)
+    const chatTotal = Math.floor(chatTotalRaw / chatScale)
+
+    // Scaling for Completions: 4000 units in API = 2000 actual requests
+    const compTotalRaw = data.monthly_quotas?.completions ?? 2000
+    const compScale = compTotalRaw === 4000 ? 2 : 1
+    const completionsRemaining = Math.floor((data.limited_user_quotas.completions ?? 0) / compScale)
+    const completionsTotal = Math.floor(compTotalRaw / compScale)
 
     return {
-      used: Math.max(0, chatTotal - chatRemaining),
+      used: chatRemaining,
       total: chatTotal,
       percentRemaining: chatTotal > 0 ? Math.round((chatRemaining / chatTotal) * 100) : 0,
       resetTime: data.limited_user_reset_date || data.quota_reset_date,
-      completionsUsed: Math.max(0, completionsTotal - completionsRemaining),
+      completionsUsed: completionsRemaining,
       completionsTotal: completionsTotal,
     }
   }
 
-  // Handle standard format
+  // Handle standard format (unlimited/pro+)
   if (data.quota_snapshots?.premium_interactions) {
     const premium = data.quota_snapshots.premium_interactions
+    const totalRaw = premium.unlimited ? -1 : premium.entitlement
+    const remainingRaw = premium.remaining
+    
+    // Auto-detect if we need to scale by 10
+    const scaleFactor = totalRaw === 500 ? 10 : 1
+    const chatRemaining = totalRaw === -1 ? -1 : Math.floor(remainingRaw / scaleFactor)
+    const chatTotal = totalRaw === -1 ? -1 : Math.floor(totalRaw / scaleFactor)
+
     return {
-      used: premium.unlimited ? 0 : premium.entitlement - premium.remaining,
-      total: premium.unlimited ? -1 : premium.entitlement,
+      used: chatRemaining,
+      total: chatTotal,
       percentRemaining: Math.round(premium.percent_remaining),
       resetTime: data.quota_reset_date,
     }

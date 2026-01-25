@@ -7,7 +7,7 @@ import type { UsageProvider } from "../base"
 import type { UsageSnapshot, ProxyQuota, ProxyProviderInfo, ProxyQuotaGroup, ProxyTierInfo } from "../../types"
 import { loadUsageConfig } from "../../usage/config"
 import { fetchProxyLimits } from "./fetch"
-import type { ProxyResponse, Provider, CredentialData, GroupUsage } from "./types"
+import type { ProxyResponse, Provider, CredentialData, GroupUsage, TierWindow } from "./types"
 
 export type { ProxyResponse } from "./types"
 export { fetchProxyLimits } from "./fetch"
@@ -45,7 +45,9 @@ function sortQuotaGroups(groups: ProxyQuotaGroup[]): ProxyQuotaGroup[] {
 
 function normalizeTier(tier?: string): "paid" | "free" {
   if (!tier) return "free"
-  return tier.includes("free") ? "free" : "paid"
+  const t = tier.toLowerCase()
+  if (t === "paid" || t === "pro" || t === "premium" || t === "individual" || t.includes("paid")) return "paid"
+  return "free"
 }
 
 /**
@@ -83,55 +85,50 @@ function parseQuotaGroupsFromCredential(
 
     if (!bestWindow) continue
 
-    const existing = result.get(mappedName)
-    if (existing) {
-      existing.remaining += bestWindow.remaining
-      existing.max += bestWindow.limit || 0
-      // Use the latest reset time
-      if (bestWindow.reset_at) {
-        const newResetTime = new Date(bestWindow.reset_at * 1000).toISOString()
-        if (!existing.resetTime || new Date(newResetTime) > new Date(existing.resetTime)) {
-          existing.resetTime = newResetTime
-        }
-      }
-    } else {
-      result.set(mappedName, {
-        name: mappedName,
-        remaining: bestWindow.remaining,
-        max: bestWindow.limit || bestWindow.remaining,
-        remainingPct: bestWindow.limit ? Math.round((bestWindow.remaining / bestWindow.limit) * 100) : 0,
-        resetTime: bestWindow.reset_at ? new Date(bestWindow.reset_at * 1000).toISOString() : null,
-      })
-    }
+    // Use a unique key for grouping within a tier to avoid cross-credential collisions
+    // but allow summing across multiple credentials of the SAME tier if they share a model group
+    result.set(mappedName, {
+      name: mappedName,
+      remaining: bestWindow.remaining,
+      max: bestWindow.limit || bestWindow.remaining,
+      remainingPct: bestWindow.limit ? Math.round((bestWindow.remaining / bestWindow.limit) * 100) : 0,
+      resetTime: bestWindow.reset_at ? new Date(bestWindow.reset_at * 1000).toISOString() : null,
+    })
   }
 
   return Array.from(result.values())
 }
 
-function aggregateByTier(credentials: CredentialData[]): ProxyTierInfo[] {
+function aggregateByProvider(provider: Provider): ProxyTierInfo[] {
   const tiers: Record<"paid" | "free", Map<string, ProxyQuotaGroup>> = {
     paid: new Map(),
     free: new Map(),
   }
 
-  for (const cred of credentials) {
-    const tier = normalizeTier(cred.tier)
-    const groups = parseQuotaGroupsFromCredential(cred.group_usage)
+  // 1. Process individual credentials into THEIR RESPECTIVE TIER BUCKETS
+  // We sum only within the same tier to show "How much I have in total for my Paid accounts"
+  // and "How much I have in total for my Free accounts" separately.
+  if (provider.credentials) {
+    for (const cred of Object.values(provider.credentials)) {
+      const tier = normalizeTier(cred.tier)
+      const groups = parseQuotaGroupsFromCredential(cred.group_usage)
 
-    for (const group of groups) {
-      const existing = tiers[tier].get(group.name)
-      if (existing) {
-        existing.remaining += group.remaining
-        existing.max += group.max
-        if (group.resetTime && (!existing.resetTime || new Date(group.resetTime) > new Date(existing.resetTime))) {
-          existing.resetTime = group.resetTime
+      for (const group of groups) {
+        const existing = tiers[tier].get(group.name)
+        if (existing) {
+          existing.remaining += group.remaining
+          existing.max += group.max
+          if (group.resetTime && (!existing.resetTime || new Date(group.resetTime) > new Date(existing.resetTime))) {
+            existing.resetTime = group.resetTime
+          }
+        } else {
+          tiers[tier].set(group.name, { ...group })
         }
-      } else {
-        tiers[tier].set(group.name, { ...group })
       }
     }
   }
 
+  // Final percentage calculation: calculated individually per tier bucket
   for (const tierGroups of Object.values(tiers)) {
     for (const group of tierGroups.values()) {
       group.remainingPct = group.max > 0 ? Math.round((group.remaining / group.max) * 100) : 0
@@ -152,12 +149,9 @@ function parseProviders(data: ProxyResponse): ProxyProviderInfo[] {
   if (!data.providers) return []
 
   return Object.entries(data.providers).map(([name, provider]) => {
-    // Convert credentials object to array
-    const credentialsArray = Object.values(provider.credentials || {})
-
     return {
       name,
-      tiers: aggregateByTier(credentialsArray),
+      tiers: aggregateByProvider(provider),
     }
   })
 }
