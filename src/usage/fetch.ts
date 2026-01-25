@@ -6,6 +6,7 @@
 import z from "zod"
 import type { UsageSnapshot } from "../types"
 import { providers } from "../providers"
+import { loadUsageConfig } from "./config"
 import { getAuthFilePath } from "../utils"
 import type { AuthRecord } from "./registry"
 import { resolveProviderAuths } from "./registry"
@@ -43,6 +44,14 @@ export function resolveProviderFilter(filter?: string): string | undefined {
 
 export async function fetchUsageSnapshots(filter?: string): Promise<UsageSnapshot[]> {
   const targetProvider = resolveProviderFilter(filter)
+  const usageConfig = await loadUsageConfig().catch(() => null)
+  const providerToggles = usageConfig?.providers ?? {}
+  const isProviderEnabled = (id: string): boolean => {
+    if (id === "codex") return providerToggles.openai !== false
+    if (id === "proxy") return providerToggles.proxy !== false
+    if (id === "copilot") return providerToggles.copilot !== false
+    return true
+  }
   const auths = await loadAuths()
   const entries = resolveProviderAuths(auths, null)
   const snapshots: UsageSnapshot[] = []
@@ -50,6 +59,7 @@ export async function fetchUsageSnapshots(filter?: string): Promise<UsageSnapsho
   // Fetch from auth-based providers
   const fetches = entries
     .filter((entry) => !targetProvider || entry.providerID === targetProvider)
+    .filter((entry) => isProviderEnabled(entry.providerID))
     .map(async (entry) => {
       const provider = providers[entry.providerID]
       if (!provider?.fetchUsage) return
@@ -60,7 +70,7 @@ export async function fetchUsageSnapshots(filter?: string): Promise<UsageSnapsho
   // Always include special providers (no auth entries needed) if no filter or filter matches
   const specialProviders = ["proxy", "copilot"]
   for (const id of specialProviders) {
-    if (!targetProvider || targetProvider === id) {
+    if ((!targetProvider || targetProvider === id) && isProviderEnabled(id)) {
       const provider = providers[id]
       if (provider?.fetchUsage) {
         fetches.push(
