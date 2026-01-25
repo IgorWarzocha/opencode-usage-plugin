@@ -22,7 +22,6 @@ Dependencies are in root `package.json`. The plugin loads via `opencode.json`.
 
 - **Load Plugin**: `opencode` (automatically loads plugin specified in `opencode.json`)
 - **Build Check**: Verify `index.ts` compiles: `bun --version && bun index.ts --help 2>/dev/null || true`
-- **Test Storage**: `bun run debug-db.ts` (queries SQLite at `.opencode/plugin/usage/usage.sqlite`)
 
 ### Conventions
 - **Hooks**: MUST follow the pattern in `hooks/index.ts`. Use barrel exports to keep `index.ts` lean.
@@ -42,6 +41,5 @@ Dependencies are in root `package.json`. The plugin loads via `opencode.json`.
 - Update `ui/status.ts` to change how usage information is displayed in the CLI/IDE.
 
 <rules>
-- MUST NOT modify `storage.ts` without verifying cross-platform path compatibility via `utils/paths.ts`.
 - MUST maintain clear separation between providers in `providers/`.
 </rules>

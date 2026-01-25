@@ -6,6 +6,7 @@ Track AI provider rate limits and quotas in real-time.
 
 - **Live rate limits** – See Codex/OpenAI hourly/weekly limits at a glance
 - **Proxy quota stats** – Monitor Mirrowel Proxy credentials and tier usage
+- **Copilot usage** – Track GitHub Copilot chat + completions quotas
 - **Inline status** – Results appear directly in your chat, no context switching
 - **Zero setup** – Auto-detects providers from your existing config
 
@@ -18,7 +19,7 @@ Add to your `opencode.json`:
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugins": ["@howaboua/opencode-usage-plugin"]
+  "plugin": ["@howaboua/opencode-usage-plugin"]
 }
 ```
 
@@ -37,6 +38,7 @@ OpenCode installs dependencies automatically on next launch.
 ```
 /usage codex
 /usage proxy
+/usage copilot
 ```
 
 ### Support the proxy
@@ -51,6 +53,7 @@ OpenCode installs dependencies automatically on next launch.
 |----------|--------|
 | **Codex / OpenAI** | Auth tokens + `/wham/usage` endpoint |
 | **Mirrowel Proxy** | Local `/v1/quota-stats` endpoint |
+| **GitHub Copilot** | GitHub internal usage APIs |
 
 ## Configuration
 
@@ -70,21 +73,20 @@ Optional config at `~/.config/opencode/usage-config.jsonc`:
   // Show/hide providers in /usage output
   "providers": {
     "openai": true,
-    "proxy": true
+    "proxy": true,
+    "copilot": true
   }
 }
 ```
 
 If missing, the plugin creates a default template on first run.
 
-## Development
+### Copilot auth
 
-```bash
-# Check DB contents
-bun run debug-db.ts
+Copilot is detected from either of these locations:
 
-# Verify path resolution
-bun run debug-path.ts
-```
+- `~/.local/share/opencode/copilot-usage-token.json`
+- `~/.local/share/opencode/auth.json` with a `github-copilot` entry
+- `~/.config/opencode/copilot-quota-token.json` (optional override)
 
 See `AGENTS.md` for internal architecture.
