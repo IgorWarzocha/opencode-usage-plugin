@@ -96,39 +96,39 @@ function formatResetSuffixISO(isoString: string): string {
 
 function formatProxySnapshot(snapshot: UsageSnapshot): string[] {
   const proxy = snapshot.proxyQuota
-  if (!proxy || !proxy.providers || proxy.providers.length === 0) return []
+  if (!proxy || !proxy.providers || proxy.providers.length === 0) return ["→ [proxy] No data"]
 
   const lines: string[] = ["→ [Google] Mirrowel Proxy"]
 
   for (const provider of proxy.providers) {
-    if (!provider.tiers || provider.tiers.length === 0) continue
+    const providerLines: string[] = []
     
-    lines.push("")
-    lines.push(`  ${provider.name}:`)
-
     for (const tierInfo of provider.tiers) {
       if (!tierInfo.quotaGroups || tierInfo.quotaGroups.length === 0) continue
       
       const tierLabel = tierInfo.tier === "paid" ? "Paid" : "Free"
-      lines.push(`    ${tierLabel}:`)
+      providerLines.push(`    ${tierLabel}:`)
 
       for (const group of tierInfo.quotaGroups) {
         const resetSuffix = group.resetTime ? formatResetSuffixISO(group.resetTime) : ""
         const label = `${group.name}:`.padEnd(9)
-        lines.push(`      ${label} ${formatBar(group.remainingPct)} ${group.remaining}/${group.max}${resetSuffix}`)
+        providerLines.push(`      ${label} ${formatBar(group.remainingPct)} ${group.remaining}/${group.max}${resetSuffix}`)
       }
     }
-  }
 
-  // If we only have the header, it means no tiers/groups were formatted
-  if (lines.length === 1) return []
+    if (providerLines.length > 0) {
+      lines.push("")
+      lines.push(`  ${provider.name}:`)
+      for (const line of providerLines) lines.push(line)
+    }
+  }
 
   return lines
 }
 
 function formatCopilotSnapshot(snapshot: UsageSnapshot): string[] {
   const copilot = snapshot.copilotQuota
-  if (!copilot) return []
+  if (!copilot) return ["→ [copilot] No data"]
 
   const lines: string[] = ["→ [GITHUB] Copilot"]
   const resetSuffix = copilot.resetTime ? formatResetSuffixISO(copilot.resetTime) : ""
@@ -173,9 +173,6 @@ function formatMissingSnapshot(snapshot: UsageSnapshot): string[] {
     providerInstruction = "if you are not running Mirrowel's proxy, please set your usage-config.jsonc to proxy: false"
   } else if (provider === "copilot") {
     providerInstruction = "if you are not running GitHub Copilot, please set your usage-config.jsonc to copilot: false"
-  } else {
-    // For other providers, we don't show the big help block unless it's a core one
-    return []
   }
 
   return [
@@ -230,9 +227,6 @@ function formatSnapshot(snapshot: UsageSnapshot): string[] {
     lines.push(`  Credits:      ${snapshot.credits.balance}`)
   }
 
-  // If we only have the header line, don't show anything
-  if (lines.length === 1) return []
-
   return lines
 }
 
@@ -256,23 +250,10 @@ export async function renderUsageStatus(options: {
 
   const lines: string[] = ["▣ Usage Status", ""]
 
-  const formattedSnapshots = options.snapshots
-    .map(snapshot => formatSnapshot(snapshot))
-    .filter(lines => lines.length > 0)
-
-  if (formattedSnapshots.length === 0) {
-    await sendStatusMessage({
-      client: options.client,
-      state: options.state,
-      sessionID: options.sessionID,
-      text: `▣ Usage | No active providers found.`,
-    })
-    return
-  }
-
-  formattedSnapshots.forEach((snapshotLines, index) => {
+  options.snapshots.forEach((snapshot, index) => {
+    const snapshotLines = formatSnapshot(snapshot)
     for (const line of snapshotLines) lines.push(line)
-    if (index < formattedSnapshots.length - 1) {
+    if (index < options.snapshots.length - 1) {
       lines.push("")
       lines.push("---")
     }

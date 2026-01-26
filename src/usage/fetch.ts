@@ -49,11 +49,7 @@ export async function fetchUsageSnapshots(filter?: string): Promise<UsageSnapsho
   
   const isProviderEnabled = (id: string): boolean => {
     if (id === "codex") return providerToggles.openai !== false
-    if (id === "proxy") {
-      // Don't auto-enable proxy if it's missing endpoint/key
-      if (!usageConfig?.endpoint || !usageConfig?.apiKey) return false
-      return providerToggles.proxy !== false
-    }
+    if (id === "proxy") return providerToggles.proxy !== false
     if (id === "copilot") return providerToggles.copilot !== false
     return true
   }
