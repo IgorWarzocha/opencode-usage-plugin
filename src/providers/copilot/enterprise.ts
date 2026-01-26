@@ -164,7 +164,7 @@ function toCopilotQuotaFromMetrics(
     total: -1, // No known max limit; tracking usage only until enterprise validation
     percentRemaining: 0,
     resetTime,
-    completionsUsed: sortedEntries.reduce((sum, e) => e.completions_count ?? 0, 0),
+    completionsUsed: sortedEntries.reduce((sum, e) => sum + (e.completions_count ?? 0), 0),
     completionsTotal: -1,
   }
 }
