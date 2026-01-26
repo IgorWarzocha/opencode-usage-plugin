@@ -74,7 +74,6 @@ export async function fetchUsageSnapshots(filter?: string): Promise<UsageSnapsho
           fetchedProviders.add(entry.providerID)
         }
       } catch {
-        // Handle error by letting fallback logic take over
       }
     })
 
@@ -100,7 +99,6 @@ export async function fetchUsageSnapshots(filter?: string): Promise<UsageSnapsho
 
   await Promise.race([Promise.all(fetches), timeout(5000)])
 
-  // Fallback for enabled but missing providers
   for (const id of coreProviders) {
     if (isProviderEnabled(id) && !fetchedProviders.has(id)) {
       if (!targetProvider || targetProvider === id) {
@@ -122,21 +120,17 @@ export async function fetchUsageSnapshots(filter?: string): Promise<UsageSnapsho
   return snapshots
 }
 
-/**
- * Loads auth data from the first available auth file.
- * Merges data from all found files on macOS where multiple locations may exist.
- * Also handles .codex/auth.json as a fallback for OpenAI/Codex tokens.
- */
 export async function loadAuths(): Promise<AuthRecord> {
   const possiblePaths = getPossibleAuthPaths()
   const mergedAuth: AuthRecord = {}
 
-  // Try to load and merge from all possible paths
-  for (const authPath of possiblePaths) {
+  for (const authPath of possiblePaths.reverse()) {
     try {
-      const data = await Bun.file(authPath).json()
+      const file = Bun.file(authPath)
+      if (!(await file.exists())) continue
+      
+      const data = await file.json()
       if (data && typeof data === "object") {
-        // Special handling for .codex/auth.json format
         if (authPath.includes(".codex")) {
           const codexAuth = transformCodexAuth(data)
           if (codexAuth) {
@@ -147,12 +141,10 @@ export async function loadAuths(): Promise<AuthRecord> {
 
         const parsed = authRecordSchema.safeParse(data)
         if (parsed.success) {
-          // Merge auth entries (later paths override earlier ones)
           Object.assign(mergedAuth, parsed.data)
         }
       }
     } catch {
-      // File doesn't exist or is invalid, continue to next path
       continue
     }
   }
@@ -160,20 +152,19 @@ export async function loadAuths(): Promise<AuthRecord> {
   return mergedAuth
 }
 
-/**
- * Transforms .codex/auth.json format to standard auth record format.
- * .codex/auth.json: { tokens: { access_token, account_id, refresh_token } }
- * Standard format: { openai: { access, accountId, refresh, type: "oauth" } }
- */
 function transformCodexAuth(data: unknown): AuthRecord | null {
-  if (!data || typeof data !== "object") return null
+  const codexAuthSchema = z.object({
+    tokens: z.object({
+      access_token: z.string(),
+      account_id: z.string().optional(),
+      refresh_token: z.string().optional(),
+    }),
+  })
 
-  // Check for .codex format: { tokens: { access_token, account_id, ... } }
-  const tokens = (data as { tokens?: { access_token?: string; account_id?: string; refresh_token?: string } }).tokens
-  if (!tokens || typeof tokens !== "object") return null
+  const parsed = codexAuthSchema.safeParse(data)
+  if (!parsed.success) return null
 
-  const { access_token, account_id, refresh_token } = tokens
-  if (!access_token) return null
+  const { access_token, account_id, refresh_token } = parsed.data.tokens
 
   return {
     openai: {

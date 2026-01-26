@@ -88,9 +88,6 @@ export interface UsageSnapshot {
   proxyQuota?: ProxyQuota
   copilotQuota?: CopilotQuota
   updatedAt: number
-  /**
-   * Whether the snapshot represents a missing or error state.
-   */
   isMissing?: boolean
 }
 

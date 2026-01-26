@@ -33,28 +33,28 @@ export function getAppDataPath(): string {
 export function getPossibleAuthPaths(): string[] {
   const plat = platform()
   const home = homedir()
-  const paths: string[] = []
+  const pathSet = new Set<string>()
 
   if (plat === "darwin") {
     // OpenCode on macOS uses Linux-style paths
-    paths.push(join(home, ".local", "share", "opencode", "auth.json"))
+    pathSet.add(join(home, ".local", "share", "opencode", "auth.json"))
     // Standard macOS location (fallback)
-    paths.push(join(home, "Library", "Application Support", "opencode", "auth.json"))
+    pathSet.add(join(home, "Library", "Application Support", "opencode", "auth.json"))
     // Codex-specific auth (fallback)
-    paths.push(join(home, ".codex", "auth.json"))
+    pathSet.add(join(home, ".codex", "auth.json"))
   } else if (plat === "win32") {
-    paths.push(join(process.env.APPDATA || join(home, "AppData", "Roaming"), "opencode", "auth.json"))
+    pathSet.add(join(process.env.APPDATA || join(home, "AppData", "Roaming"), "opencode", "auth.json"))
   } else {
     // Linux/other
     const xdgData = process.env.XDG_DATA_HOME
     if (xdgData) {
-      paths.push(join(xdgData, "opencode", "auth.json"))
+      pathSet.add(join(xdgData, "opencode", "auth.json"))
     }
-    paths.push(join(home, ".local", "share", "opencode", "auth.json"))
-    paths.push(join(home, ".codex", "auth.json"))
+    pathSet.add(join(home, ".local", "share", "opencode", "auth.json"))
+    pathSet.add(join(home, ".codex", "auth.json"))
   }
 
-  return paths
+  return Array.from(pathSet)
 }
 
 /**
