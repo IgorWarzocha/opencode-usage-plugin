@@ -18,6 +18,7 @@ const authEntrySchema = z
     refresh: z.string().optional(),
     enterpriseUrl: z.string().optional(),
     accountId: z.string().optional(),
+    key: z.string().optional(),
   })
   .passthrough()
 

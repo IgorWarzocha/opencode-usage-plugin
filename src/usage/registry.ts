@@ -11,6 +11,7 @@ export type AuthEntry = {
   refresh?: string
   enterpriseUrl?: string
   accountId?: string
+  key?: string
 }
 
 export type AuthRecord = Record<string, AuthEntry>
@@ -32,7 +33,7 @@ const providerDescriptors: ProviderDescriptor[] = [
     authKeys: ["codex", "openai"],
     requiresOAuth: true,
     buildAuth: (entry) => ({
-      access: entry.access,
+      access: entry.access || entry.key,
       accountId: entry.accountId,
     }),
   },
