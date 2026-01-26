@@ -96,15 +96,19 @@ function formatResetSuffixISO(isoString: string): string {
 
 function formatProxySnapshot(snapshot: UsageSnapshot): string[] {
   const proxy = snapshot.proxyQuota
-  if (!proxy) return ["→ [proxy] No data"]
+  if (!proxy || !proxy.providers || proxy.providers.length === 0) return []
 
   const lines: string[] = ["→ [Google] Mirrowel Proxy"]
 
   for (const provider of proxy.providers) {
+    if (!provider.tiers || provider.tiers.length === 0) continue
+    
     lines.push("")
     lines.push(`  ${provider.name}:`)
 
     for (const tierInfo of provider.tiers) {
+      if (!tierInfo.quotaGroups || tierInfo.quotaGroups.length === 0) continue
+      
       const tierLabel = tierInfo.tier === "paid" ? "Paid" : "Free"
       lines.push(`    ${tierLabel}:`)
 
@@ -116,12 +120,15 @@ function formatProxySnapshot(snapshot: UsageSnapshot): string[] {
     }
   }
 
+  // If we only have the header, it means no tiers/groups were formatted
+  if (lines.length === 1) return []
+
   return lines
 }
 
 function formatCopilotSnapshot(snapshot: UsageSnapshot): string[] {
   const copilot = snapshot.copilotQuota
-  if (!copilot) return ["→ [copilot] No data"]
+  if (!copilot) return []
 
   const lines: string[] = ["→ [GITHUB] Copilot"]
   const resetSuffix = copilot.resetTime ? formatResetSuffixISO(copilot.resetTime) : ""
@@ -157,7 +164,6 @@ function getAppDataPath(): string {
 
 function formatMissingSnapshot(snapshot: UsageSnapshot): string[] {
   const provider = snapshot.provider
-  const label = provider === "codex" ? "codex" : provider === "proxy" ? "proxy" : "gh"
   const configPath = join(getAppDataPath(), "usage-config.jsonc")
   
   let providerInstruction = ""
@@ -167,6 +173,9 @@ function formatMissingSnapshot(snapshot: UsageSnapshot): string[] {
     providerInstruction = "if you are not running Mirrowel's proxy, please set your usage-config.jsonc to proxy: false"
   } else if (provider === "copilot") {
     providerInstruction = "if you are not running GitHub Copilot, please set your usage-config.jsonc to copilot: false"
+  } else {
+    // For other providers, we don't show the big help block unless it's a core one
+    return []
   }
 
   return [
@@ -221,6 +230,9 @@ function formatSnapshot(snapshot: UsageSnapshot): string[] {
     lines.push(`  Credits:      ${snapshot.credits.balance}`)
   }
 
+  // If we only have the header line, don't show anything
+  if (lines.length === 1) return []
+
   return lines
 }
 
@@ -244,10 +256,23 @@ export async function renderUsageStatus(options: {
 
   const lines: string[] = ["▣ Usage Status", ""]
 
-  options.snapshots.forEach((snapshot, index) => {
-    const snapshotLines = formatSnapshot(snapshot)
+  const formattedSnapshots = options.snapshots
+    .map(snapshot => formatSnapshot(snapshot))
+    .filter(lines => lines.length > 0)
+
+  if (formattedSnapshots.length === 0) {
+    await sendStatusMessage({
+      client: options.client,
+      state: options.state,
+      sessionID: options.sessionID,
+      text: `▣ Usage | No active providers found.`,
+    })
+    return
+  }
+
+  formattedSnapshots.forEach((snapshotLines, index) => {
     for (const line of snapshotLines) lines.push(line)
-    if (index < options.snapshots.length - 1) {
+    if (index < formattedSnapshots.length - 1) {
       lines.push("")
       lines.push("---")
     }
