@@ -75,6 +75,25 @@ Optional config at `~/.config/opencode/usage-config.jsonc`:
     "openai": true,
     "proxy": true,
     "copilot": true
+  },
+
+  /**
+   * GitHub Copilot Enterprise/Organization Configuration
+   * For enterprise or organization-level usage tracking
+   */
+  "copilotEnterprise": {
+    // Enterprise slug from GitHub Enterprise settings
+    // Use this for GitHub Enterprise Cloud accounts
+    "enterprise": "your-enterprise-slug",
+
+    // Organization name (alternative to enterprise)
+    // Use this for organization-level Copilot Business/Enterprise accounts
+    "organization": "your-org-name",
+
+    // Optional: override auth token
+    // Defaults to GitHub CLI token if not provided
+    // Token needs "View Enterprise Copilot Metrics" or "View Organization Copilot Metrics" permission
+    "token": ""
   }
 }
 ```
@@ -82,6 +101,26 @@ Optional config at `~/.config/opencode/usage-config.jsonc`:
 If missing, the plugin creates a default template on first run.
 
 ### Copilot auth
+
+**Individual accounts** (Pro, Pro+, Free):
+Detected from:
+- `~/.local/share/opencode/copilot-usage-token.json`
+- `~/.local/share/opencode/auth.json` with a `github-copilot` entry
+- `~/.config/opencode/copilot-quota-token.json` (optional override)
+
+**Enterprise/Organization accounts**:
+Requires configuration in `usage-config.jsonc` (see above). The plugin will:
+1. Check for `copilotEnterprise` config
+2. Use enterprise/org metrics API if configured
+3. Fall back to individual quota checking if enterprise metrics are unavailable
+4. Automatically use GitHub CLI token if no explicit token is provided
+
+**Enterprise Prerequisites**:
+- "Copilot usage metrics" policy must be set to **Enabled everywhere** for the enterprise
+- Token requires appropriate permissions:
+  - Fine-grained PAT: "Enterprise Copilot metrics" (read) or "Organization Copilot metrics" (read)
+  - Classic PAT: `manage_billing:copilot` or `read:enterprise` / `read:org`
+- GitHub Enterprise Cloud account with Copilot Enterprise or Copilot Business
 
 Copilot is detected from either of these locations:
 

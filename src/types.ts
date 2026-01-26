@@ -66,6 +66,12 @@ export interface ProxyQuota {
   dataSource: string
 }
 
+export interface CopilotEnterpriseConfig {
+  enterprise?: string
+  organization?: string
+  token?: string
+}
+
 export interface UsageConfig {
   endpoint?: string
   apiKey?: string
@@ -75,6 +81,7 @@ export interface UsageConfig {
     proxy?: boolean
     copilot?: boolean
   }
+  copilotEnterprise?: CopilotEnterpriseConfig
 }
 
 export interface UsageSnapshot {

@@ -11,6 +11,8 @@ import {
   toCopilotQuotaFromInternal,
   type CopilotInternalUserResponse,
 } from "./response.js"
+import { fetchCopilotEnterpriseUsage } from "./enterprise.js"
+import { loadCopilotEnterpriseConfig } from "../../usage/config.js"
 
 const GITHUB_API_BASE_URL = "https://api.github.com"
 const COPILOT_INTERNAL_USER_URL = `${GITHUB_API_BASE_URL}/copilot_internal/user`
@@ -74,36 +76,44 @@ export const CopilotProvider: UsageProvider<void> = {
     const now = Date.now()
     let quota: CopilotQuota | null = null
 
-    const auth = await readCopilotAuth()
-    const oauthToken = auth?.refresh || auth?.access
-    if (oauthToken) {
-      try {
-        let resp = await fetchWithTimeout(COPILOT_INTERNAL_USER_URL, {
-          headers: {
-            Accept: "application/json",
-            Authorization: `token ${oauthToken}`,
-            ...COPILOT_HEADERS,
-          },
-        })
+    const enterpriseConfig = await loadCopilotEnterpriseConfig()
+    if (enterpriseConfig) {
+      quota = await fetchCopilotEnterpriseUsage(enterpriseConfig)
+    }
 
-        if (!resp.ok) {
-          const copilotToken = await exchangeForCopilotToken(oauthToken)
-          if (copilotToken) {
-            resp = await fetchWithTimeout(COPILOT_INTERNAL_USER_URL, {
-              headers: {
-                Accept: "application/json",
-                Authorization: `Bearer ${copilotToken}`,
-                ...COPILOT_HEADERS,
-              },
-            })
+    if (!quota) {
+      const auth = await readCopilotAuth()
+      const oauthToken = auth?.refresh || auth?.access
+      if (oauthToken) {
+        try {
+          let resp = await fetchWithTimeout(COPILOT_INTERNAL_USER_URL, {
+            headers: {
+              Accept: "application/json",
+              Authorization: `token ${oauthToken}`,
+              ...COPILOT_HEADERS,
+            },
+          })
+
+          if (!resp.ok) {
+            const copilotToken = await exchangeForCopilotToken(oauthToken)
+            if (copilotToken) {
+              resp = await fetchWithTimeout(COPILOT_INTERNAL_USER_URL, {
+                headers: {
+                  Accept: "application/json",
+                  Authorization: `Bearer ${copilotToken}`,
+                  ...COPILOT_HEADERS,
+                },
+              })
+            }
           }
-        }
 
-        if (resp.ok) {
-          const data = (await resp.json()) as CopilotInternalUserResponse
-          quota = toCopilotQuotaFromInternal(data)
+          if (resp.ok) {
+            const data = (await resp.json()) as CopilotInternalUserResponse
+            quota = toCopilotQuotaFromInternal(data)
+          }
+        } catch {
+          // Silent fallback if individual auth/internal API is unavailable
         }
-      } catch {
       }
     }
 
