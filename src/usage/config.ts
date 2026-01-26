@@ -5,43 +5,9 @@
 import { join } from "path"
 import { homedir } from "os"
 import type { UsageConfig } from "../types.js"
+import { readGitHubCliToken } from "../providers/copilot/auth.js"
 
 const CONFIG_PATH = join(homedir(), ".config", "opencode", "usage-config.jsonc")
-
-async function readGitHubCliToken(): Promise<string | null> {
-  const ghConfigPath = join(homedir(), ".config", "gh", "hosts.yml")
-
-  try {
-    const file = Bun.file(ghConfigPath)
-    if (!(await file.exists())) {
-      return null
-    }
-
-    const content = await file.text()
-    const lines = content.split("\n")
-    let inGithubCom = false
-    for (const line of lines) {
-      const trimmed = line.trim()
-      if (trimmed === "github.com:" || trimmed === '"github.com":') {
-        inGithubCom = true
-        continue
-      }
-      if (inGithubCom && trimmed.startsWith("oauth_token:")) {
-        const match = trimmed.match(/oauth_token:\s*["']?([^"'\s]+)/)
-        if (match && match[1]) {
-          return match[1]
-        }
-      }
-      if (inGithubCom && trimmed.endsWith(":") && !trimmed.startsWith("oauth_token")) {
-        inGithubCom = false
-      }
-    }
-
-    return null
-  } catch {
-    return null
-  }
-}
 
 export async function loadUsageConfig(): Promise<UsageConfig> {
   const file = Bun.file(CONFIG_PATH)
