@@ -58,7 +58,7 @@ export function toCopilotQuotaFromInternal(data: CopilotInternalUserResponse): C
       percentRemaining: chatTotal > 0 ? Math.round((chatRemaining / chatTotal) * 100) : 0,
       resetTime: data.limited_user_reset_date || data.quota_reset_date,
       completionsUsed: completionsRemaining,
-      completionsTotal: completionsTotal,
+      completionsTotal,
     }
   }
 

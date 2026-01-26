@@ -1,7 +1,6 @@
 /**
  * providers/copilot/auth.ts
  * Provides authentication and configuration helpers for GitHub Copilot.
- * Handles local auth token discovery and standard OpenCode credentials.
  */
 
 import { existsSync } from "fs"

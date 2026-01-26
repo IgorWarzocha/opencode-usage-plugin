@@ -1,7 +1,6 @@
 /**
  * providers/copilot/index.ts
  * Main entry point for the GitHub Copilot usage provider.
- * Orchestrates token exchange and fetching from the internal API.
  */
 
 import type { UsageProvider } from "../base.js"

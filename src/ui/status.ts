@@ -126,8 +126,8 @@ function formatCopilotSnapshot(snapshot: UsageSnapshot): string[] {
   const totalLabel = copilot.total === -1 ? "∞" : copilot.total.toString()
   const chatLabel = "Chat:".padEnd(13)
 
-  const chatRemaining = copilot.used;
-  const chatPct = copilot.percentRemaining;
+  const chatRemaining = copilot.used
+  const chatPct = copilot.percentRemaining
 
   lines.push(`  ${chatLabel} ${formatBar(chatPct)} ${chatRemaining}/${totalLabel}${resetSuffix}`)
 

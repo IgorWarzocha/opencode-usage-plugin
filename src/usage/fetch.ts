@@ -7,7 +7,7 @@ import z from "zod"
 import type { UsageSnapshot } from "../types"
 import { providers } from "../providers"
 import { loadUsageConfig } from "./config"
-import { getAuthFilePath } from "../utils"
+import { getPossibleAuthPaths } from "../utils"
 import type { AuthRecord } from "./registry"
 import { resolveProviderAuths } from "./registry"
 
@@ -87,15 +87,67 @@ export async function fetchUsageSnapshots(filter?: string): Promise<UsageSnapsho
   return snapshots
 }
 
+/**
+ * Loads auth data from the first available auth file.
+ * Merges data from all found files on macOS where multiple locations may exist.
+ * Also handles .codex/auth.json as a fallback for OpenAI/Codex tokens.
+ */
 export async function loadAuths(): Promise<AuthRecord> {
-  const authPath = getAuthFilePath()
-  const data = await Bun.file(authPath)
-    .json()
-    .catch(() => ({}))
-  if (!data || typeof data !== "object") return {}
-  const parsed = authRecordSchema.safeParse(data)
-  if (!parsed.success) return {}
-  return parsed.data as AuthRecord
+  const possiblePaths = getPossibleAuthPaths()
+  const mergedAuth: AuthRecord = {}
+
+  // Try to load and merge from all possible paths
+  for (const authPath of possiblePaths) {
+    try {
+      const data = await Bun.file(authPath).json()
+      if (data && typeof data === "object") {
+        // Special handling for .codex/auth.json format
+        if (authPath.includes(".codex")) {
+          const codexAuth = transformCodexAuth(data)
+          if (codexAuth) {
+            Object.assign(mergedAuth, codexAuth)
+          }
+          continue
+        }
+
+        const parsed = authRecordSchema.safeParse(data)
+        if (parsed.success) {
+          // Merge auth entries (later paths override earlier ones)
+          Object.assign(mergedAuth, parsed.data)
+        }
+      }
+    } catch {
+      // File doesn't exist or is invalid, continue to next path
+      continue
+    }
+  }
+
+  return mergedAuth
+}
+
+/**
+ * Transforms .codex/auth.json format to standard auth record format.
+ * .codex/auth.json: { tokens: { access_token, account_id, refresh_token } }
+ * Standard format: { openai: { access, accountId, refresh, type: "oauth" } }
+ */
+function transformCodexAuth(data: unknown): AuthRecord | null {
+  if (!data || typeof data !== "object") return null
+
+  // Check for .codex format: { tokens: { access_token, account_id, ... } }
+  const tokens = (data as { tokens?: { access_token?: string; account_id?: string; refresh_token?: string } }).tokens
+  if (!tokens || typeof tokens !== "object") return null
+
+  const { access_token, account_id, refresh_token } = tokens
+  if (!access_token) return null
+
+  return {
+    openai: {
+      type: "oauth",
+      access: access_token,
+      accountId: account_id,
+      refresh: refresh_token,
+    },
+  }
 }
 
 function timeout(ms: number): Promise<void> {
