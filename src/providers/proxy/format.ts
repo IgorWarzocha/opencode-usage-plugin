@@ -3,25 +3,13 @@
  */
 
 import type { ProxyResponse, CredentialData, GroupUsage } from "./types"
+import type { UsageConfig } from "../../types"
+import { resolveDisplayName } from "./index"
 
-const GROUP_MAPPING: Record<string, string> = {
-  "claude": "claude",
-  "g3-pro": "g3-pro",
-  "g3-flash": "g3-flash",
-  "g25-flash": "25-flash",
-  "g25-lite": "25-lite",
-  "pro": "g3-pro",
-  "3-flash": "g3-flash",
-  "25-flash": "25-flash",
-  "25-lite": "25-lite"
-}
-
-const GROUP_ORDER: string[] = ["claude", "g3-pro", "g3-flash", "25-flash", "25-lite"]
-
-function sortGroupNames(groups: Map<string, GroupQuota>): string[] {
+function sortGroupNames(groups: Map<string, GroupQuota>, groupOrder: string[]): string[] {
   return Array.from(groups.keys()).sort((a, b) => {
-    const aIndex = GROUP_ORDER.indexOf(a)
-    const bIndex = GROUP_ORDER.indexOf(b)
+    const aIndex = groupOrder.indexOf(a)
+    const bIndex = groupOrder.indexOf(b)
     if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex
     if (aIndex !== -1) return -1
     if (bIndex !== -1) return 1
@@ -64,7 +52,10 @@ type GroupQuota = {
   resetTime: string | null
 }
 
-function aggregateCredentialsByTier(credentials: CredentialData[]): Record<"paid" | "free", Map<string, GroupQuota>> {
+function aggregateCredentialsByTier(
+  credentials: CredentialData[],
+  config: UsageConfig | null
+): Record<"paid" | "free", Map<string, GroupQuota>> {
   const result = {
     paid: new Map<string, GroupQuota>(),
     free: new Map<string, GroupQuota>(),
@@ -75,8 +66,8 @@ function aggregateCredentialsByTier(credentials: CredentialData[]): Record<"paid
     const groupUsage = cred.group_usage ?? {}
 
     for (const [name, groupData] of Object.entries(groupUsage)) {
-      if (!(name in GROUP_MAPPING)) continue
-      const mappedName = GROUP_MAPPING[name]!
+      const mappedName = resolveDisplayName(name, config)
+      if (mappedName === null) continue
 
       const windows = groupData.windows || {}
       let bestWindow: { limit?: number; remaining: number; reset_at?: number | null } | null = null
@@ -118,8 +109,9 @@ function aggregateCredentialsByTier(credentials: CredentialData[]): Record<"paid
   return result
 }
 
-export function formatProxyLimits(data: ProxyResponse): string {
+export function formatProxyLimits(data: ProxyResponse, config: UsageConfig | null): string {
   const lines: string[] = []
+  const groupOrder = ["claude", "g3-pro", "g3-flash", "25-flash", "25-lite"]
 
   lines.push("[Google] Mirrowel Proxy")
   lines.push("")
@@ -133,7 +125,7 @@ export function formatProxyLimits(data: ProxyResponse): string {
     lines.push(`${providerName}:`)
 
     const credentialsArray = Object.values(provider.credentials ?? {})
-    const tierData = aggregateCredentialsByTier(credentialsArray)
+    const tierData = aggregateCredentialsByTier(credentialsArray, config)
 
     for (const [tierName, quotas] of Object.entries(tierData)) {
       if (quotas.size === 0) continue
@@ -141,7 +133,7 @@ export function formatProxyLimits(data: ProxyResponse): string {
       const tierLabel = tierName === "paid" ? "Paid" : "Free"
       lines.push(`  ${tierLabel}:`)
 
-      const sortedNames = sortGroupNames(quotas)
+      const sortedNames = sortGroupNames(quotas, groupOrder)
       for (const groupName of sortedNames) {
         const quota = quotas.get(groupName)!
         const remainingPct = quota.max > 0 ? (quota.remaining / quota.max) * 100 : 0

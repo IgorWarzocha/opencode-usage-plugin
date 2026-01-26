@@ -75,6 +75,10 @@ export interface UsageConfig {
     proxy?: boolean
     copilot?: boolean
   }
+  modelGroups?: {
+    showAll?: boolean
+    displayNames?: Record<string, string>
+  }
 }
 
 export interface UsageSnapshot {
