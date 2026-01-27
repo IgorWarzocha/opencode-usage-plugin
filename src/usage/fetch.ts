@@ -1,182 +1,103 @@
 /**
- * Loads auth data and fetches live usage snapshots from providers.
- * Supports filtering by provider alias.
+ * Orchestrates the fetching of usage snapshots from multiple providers.
+ * Manages provider filtering, concurrency, and fallback for missing data.
  */
 
-import z from "zod"
 import type { UsageSnapshot } from "../types"
 import { providers } from "../providers"
 import { loadUsageConfig } from "./config"
-import { getPossibleAuthPaths } from "../utils"
-import type { AuthRecord } from "./registry"
+import { loadMergedAuths } from "./auth/loader"
 import { resolveProviderAuths } from "./registry"
 
-const authEntrySchema = z
-  .object({
-    type: z.string().optional(),
-    access: z.string().optional(),
-    refresh: z.string().optional(),
-    enterpriseUrl: z.string().optional(),
-    accountId: z.string().optional(),
-    key: z.string().optional(),
-  })
-  .passthrough()
-
-const authRecordSchema = z.record(z.string(), authEntrySchema)
-
-export const providerAliases: Record<string, string> = {
-  codex: "codex",
-  openai: "codex",
-  gpt: "codex",
-  proxy: "proxy",
-  agy: "proxy",
-  antigravity: "proxy",
-  gemini: "proxy",
-  copilot: "copilot",
-  gh: "copilot",
-  github: "copilot",
-}
-
-export function resolveProviderFilter(filter?: string): string | undefined {
-  if (!filter) return undefined
-  const normalized = filter.toLowerCase().trim()
-  return providerAliases[normalized]
-}
+const CORE_PROVIDERS = ["codex", "proxy", "copilot"]
 
 export async function fetchUsageSnapshots(filter?: string): Promise<UsageSnapshot[]> {
-  const targetProvider = resolveProviderFilter(filter)
-  const usageConfig = await loadUsageConfig().catch(() => null)
-  const providerToggles = usageConfig?.providers ?? {}
+  const target = resolveFilter(filter)
+  const config = await loadUsageConfig().catch(() => null)
+  const toggles = config?.providers ?? {}
   
-  const isProviderEnabled = (id: string): boolean => {
-    if (id === "codex") return providerToggles.openai !== false
-    if (id === "proxy") return providerToggles.proxy !== false
-    if (id === "copilot") return providerToggles.copilot !== false
-    return true
+  const isEnabled = (id: string) => {
+    if (id === "codex") return toggles.openai !== false
+    return (toggles as any)[id] !== false
   }
 
-  const auths = await loadAuths()
+  const { auths, codexDiagnostics } = await loadMergedAuths()
   const entries = resolveProviderAuths(auths, null)
-  const snapshots: UsageSnapshot[] = []
-  
-  const coreProviders = ["codex", "proxy", "copilot"]
-  const fetchedProviders = new Set<string>()
+  const snapshotsMap = new Map<string, UsageSnapshot>()
+  const fetched = new Set<string>()
 
   const fetches = entries
-    .filter((entry) => !targetProvider || entry.providerID === targetProvider)
-    .filter((entry) => isProviderEnabled(entry.providerID))
-    .map(async (entry) => {
-      const provider = providers[entry.providerID]
-      if (!provider?.fetchUsage) return
-      try {
-        const snapshot = await provider.fetchUsage(entry.auth)
-        if (snapshot) {
-          snapshots.push(snapshot)
-          fetchedProviders.add(entry.providerID)
-        }
-      } catch {
+    .filter(e => (!target || e.providerID === target) && isEnabled(e.providerID))
+    .map(async e => {
+      const snap = await providers[e.providerID]?.fetchUsage?.(e.auth).catch(() => null)
+      if (snap) { 
+        snapshotsMap.set(e.providerID, snap)
+        fetched.add(e.providerID) 
       }
     })
 
-  const specialProviders = ["proxy", "copilot"]
-  for (const id of specialProviders) {
-    if ((!targetProvider || targetProvider === id) && isProviderEnabled(id) && !fetchedProviders.has(id)) {
+  // Handle special/default fetches
+  for (const id of ["proxy", "copilot"]) {
+    if ((!target || target === id) && isEnabled(id) && !fetched.has(id)) {
       const provider = providers[id]
       if (provider?.fetchUsage) {
-        fetches.push(
-          provider
-            .fetchUsage(undefined)
-            .then((snapshot) => {
-              if (snapshot) {
-                snapshots.push(snapshot)
-                fetchedProviders.add(id)
-              }
-            })
-            .catch(() => {}),
-        )
-      }
-    }
-  }
-
-  await Promise.race([Promise.all(fetches), timeout(5000)])
-
-  for (const id of coreProviders) {
-    if (isProviderEnabled(id) && !fetchedProviders.has(id)) {
-      if (!targetProvider || targetProvider === id) {
-        snapshots.push({
-          timestamp: Date.now(),
-          provider: id,
-          planType: null,
-          primary: null,
-          secondary: null,
-          codeReview: null,
-          credits: null,
-          updatedAt: Date.now(),
-          isMissing: true,
-        })
-      }
-    }
-  }
-
-  return snapshots
-}
-
-export async function loadAuths(): Promise<AuthRecord> {
-  const possiblePaths = getPossibleAuthPaths()
-  const mergedAuth: AuthRecord = {}
-
-  for (const authPath of possiblePaths.reverse()) {
-    try {
-      const file = Bun.file(authPath)
-      if (!(await file.exists())) continue
-      
-      const data = await file.json()
-      if (data && typeof data === "object") {
-        if (authPath.includes(".codex")) {
-          const codexAuth = transformCodexAuth(data)
-          if (codexAuth) {
-            Object.assign(mergedAuth, codexAuth)
+        fetches.push(provider.fetchUsage(undefined).then(s => {
+          if (s) { 
+            snapshotsMap.set(id, s)
+            fetched.add(id) 
           }
-          continue
-        }
-
-        const parsed = authRecordSchema.safeParse(data)
-        if (parsed.success) {
-          Object.assign(mergedAuth, parsed.data)
-        }
+        }).catch(() => {}))
       }
-    } catch {
-      continue
     }
   }
 
-  return mergedAuth
+  await Promise.race([Promise.all(fetches), new Promise(r => setTimeout(r, 5000))])
+  const snapshots = Array.from(snapshotsMap.values())
+  return appendMissingStates(snapshots, fetched, isEnabled, target, codexDiagnostics)
 }
 
-function transformCodexAuth(data: unknown): AuthRecord | null {
-  const codexAuthSchema = z.object({
-    tokens: z.object({
-      access_token: z.string(),
-      account_id: z.string().optional(),
-      refresh_token: z.string().optional(),
-    }),
-  })
-
-  const parsed = codexAuthSchema.safeParse(data)
-  if (!parsed.success) return null
-
-  const { access_token, account_id, refresh_token } = parsed.data.tokens
-
-  return {
-    openai: {
-      type: "oauth",
-      access: access_token,
-      accountId: account_id,
-      refresh: refresh_token,
-    },
+function resolveFilter(f?: string): string | undefined {
+  const aliases: Record<string, string> = { 
+    codex: "codex", openai: "codex", gpt: "codex", 
+    proxy: "proxy", agy: "proxy", gemini: "proxy",
+    copilot: "copilot", github: "copilot" 
   }
+  return f ? aliases[f.toLowerCase().trim()] : undefined
 }
 
-function timeout(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
+export function resolveProviderFilter(filter?: string): string | undefined {
+  return resolveFilter(filter)
 }
+
+function appendMissingStates(
+  snaps: UsageSnapshot[], 
+  fetched: Set<string>, 
+  isEnabled: (id: string) => boolean,
+  target?: string,
+  diagnostics?: string[]
+): UsageSnapshot[] {
+  for (const id of CORE_PROVIDERS) {
+    if (isEnabled(id) && !fetched.has(id) && (!target || target === id)) {
+      snaps.push({
+        timestamp: Date.now(),
+        provider: id,
+        planType: null,
+        primary: null,
+        secondary: null,
+        codeReview: null,
+        credits: null,
+        updatedAt: Date.now(),
+        isMissing: true,
+        missingReason: id === "codex" ? "Auth resolution failed" : undefined,
+        missingDetails: id === "codex" ? diagnostics : undefined
+      })
+    }
+  }
+  return snaps
+}
+
+export async function loadAuths() {
+  const { auths } = await loadMergedAuths()
+  return auths
+}
+
