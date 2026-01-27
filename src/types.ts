@@ -89,6 +89,8 @@ export interface UsageSnapshot {
   copilotQuota?: CopilotQuota
   updatedAt: number
   isMissing?: boolean
+  missingReason?: string
+  missingDetails?: string[]
 }
 
 export interface UsageEntry {

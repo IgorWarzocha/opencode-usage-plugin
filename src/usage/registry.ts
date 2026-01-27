@@ -3,6 +3,7 @@
  */
 
 import type { CodexAuth } from "../providers/codex"
+import type { CopilotAuthData } from "../providers/copilot/types"
 
 export type AuthEntry = {
   type?: string
@@ -10,12 +11,14 @@ export type AuthEntry = {
   refresh?: string
   enterpriseUrl?: string
   accountId?: string
+  key?: string
 }
 
 export type AuthRecord = Record<string, AuthEntry>
 
 type ProviderAuthEntry =
   | { providerID: "codex"; auth: CodexAuth }
+  | { providerID: "copilot"; auth: CopilotAuthData }
 
 type ProviderDescriptor = {
   id: ProviderAuthEntry["providerID"]
@@ -30,8 +33,17 @@ const providerDescriptors: ProviderDescriptor[] = [
     authKeys: ["codex", "openai"],
     requiresOAuth: true,
     buildAuth: (entry) => ({
-      access: entry.access,
+      access: entry.access || entry.key,
       accountId: entry.accountId,
+    }),
+  },
+  {
+    id: "copilot",
+    authKeys: ["copilot", "github-copilot"],
+    requiresOAuth: true,
+    buildAuth: (entry) => ({
+      access: entry.access,
+      refresh: entry.refresh,
     }),
   },
 ]
@@ -44,7 +56,7 @@ export function resolveProviderAuths(auths: AuthRecord, usageToken: string | nul
     if (!matched) continue
     const auth = auths[matched]
     if (!auth) continue
-    if (descriptor.requiresOAuth && auth.type && auth.type !== "oauth") continue
+    if (descriptor.requiresOAuth && auth.type && auth.type !== "oauth" && auth.type !== "token") continue
     const built = descriptor.buildAuth(auth, usageToken)
     entries.push({ providerID: descriptor.id, auth: built } as ProviderAuthEntry)
   }

@@ -7,7 +7,7 @@ import type { UsageProvider } from "../base"
 import type { UsageSnapshot, ProxyQuota, ProxyProviderInfo, ProxyQuotaGroup, ProxyTierInfo } from "../../types"
 import { loadUsageConfig } from "../../usage/config"
 import { fetchProxyLimits } from "./fetch"
-import type { ProxyResponse, Provider, CredentialData, GroupUsage, TierWindow } from "./types"
+import type { ProxyResponse, Provider, GroupUsage, ModelGroupAggregation } from "./types"
 
 export type { ProxyResponse } from "./types"
 export { fetchProxyLimits } from "./fetch"
@@ -43,6 +43,57 @@ function normalizeTier(tier?: string): "paid" | "free" {
   const t = tier.toLowerCase()
   if (t === "paid" || t === "pro" || t === "premium" || t === "individual" || t.includes("paid")) return "paid"
   return "free"
+}
+
+function parseQuotaGroupsFromAggregation(
+  quotaGroups: Record<string, ModelGroupAggregation> | undefined,
+): ProxyTierInfo[] {
+  if (!quotaGroups) return []
+
+  const tiers: Record<"paid" | "free", Map<string, ProxyQuotaGroup>> = {
+    paid: new Map(),
+    free: new Map(),
+  }
+
+  for (const [groupName, groupData] of Object.entries(quotaGroups)) {
+    const mappedName = GROUP_MAPPING[groupName]
+    if (!mappedName) continue
+
+    const windows = groupData.windows || {}
+    const windowPriority = ["daily", "5h", "1h", "15m"]
+    
+    let bestWindowName: string | null = null
+    for (const windowName of windowPriority) {
+      if (windows[windowName]) {
+        bestWindowName = windowName
+        break
+      }
+    }
+
+    if (!bestWindowName && Object.keys(windows).length > 0) {
+      bestWindowName = Object.keys(windows)[0]
+    }
+
+    if (!bestWindowName) continue
+    const window = windows[bestWindowName]
+
+    // Since these are already aggregated by provider, we split by tier if possible.
+    // However, the aggregate API provides tier-agnostic totals. 
+    // For now, we put them into "paid" as the default high-level view.
+    tiers.paid.set(mappedName, {
+      name: mappedName,
+      remaining: window.total_remaining,
+      max: window.total_max,
+      remainingPct: Math.round(window.remaining_pct),
+      resetTime: null, // Aggregated windows don't have a single reset_at
+    })
+  }
+
+  const result: ProxyTierInfo[] = []
+  if (tiers.paid.size > 0) {
+    result.push({ tier: "paid", quotaGroups: sortQuotaGroups(Array.from(tiers.paid.values())) })
+  }
+  return result
 }
 
 function parseQuotaGroupsFromCredential(
@@ -86,6 +137,12 @@ function parseQuotaGroupsFromCredential(
 }
 
 function aggregateByProvider(provider: Provider): ProxyTierInfo[] {
+  // Try aggregated quota groups first
+  if (provider.quota_groups && Object.keys(provider.quota_groups).length > 0) {
+    return parseQuotaGroupsFromAggregation(provider.quota_groups)
+  }
+
+  // Fallback to manual aggregation of credentials
   const tiers: Record<"paid" | "free", Map<string, ProxyQuotaGroup>> = {
     paid: new Map(),
     free: new Map(),

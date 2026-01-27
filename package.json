@@ -1,6 +1,6 @@
 {
   "name": "@howaboua/opencode-usage-plugin",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "opencode plugin for tracking AI provider usage, rate limits, and quotas",
   "type": "module",
   "main": "dist/index.js",
@@ -31,7 +31,9 @@
   "scripts": {
     "clean": "rm -rf dist",
     "build": "npm run clean && tsc",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "publish:dev": "npm publish --tag dev",
+    "release:dev": "npm version prerelease --preid dev && npm publish --tag dev"
   },
   "publishConfig": {
     "access": "public"

@@ -1,12 +1,14 @@
 /**
  * Renders usage snapshots into readable status text.
+ * Dispatches to specialized formatters and manages session messaging.
  */
 
 import type { PluginInput } from "@opencode-ai/plugin"
-import { platform, homedir } from "os"
-import { join } from "path"
 import type { UsageSnapshot } from "../types"
 import type { UsageState } from "../state"
+import { formatProxySnapshot } from "./formatters/proxy"
+import { formatCopilotSnapshot } from "./formatters/copilot"
+import { formatBar, formatResetSuffix, formatMissingSnapshot } from "./formatters/shared"
 
 type UsageClient = PluginInput["client"]
 
@@ -16,212 +18,55 @@ export async function sendStatusMessage(options: {
   sessionID: string
   text: string
 }): Promise<void> {
-  // @ts-ignore
-  const bus = options.client.bus
+  const bus = (options.client as any).bus
   if (bus) {
     try {
       await bus.publish({
         topic: "companion.projection",
-        body: {
-          key: "usage",
-          kind: "markdown",
-          content: options.text,
-        },
+        body: { key: "usage", kind: "markdown", content: options.text },
       })
     } catch {}
   }
 
-  await options.client.session
-    .prompt({
-      path: { id: options.sessionID },
-      body: {
-        noReply: true,
-        parts: [
-          {
-            type: "text",
-            text: options.text,
-            ignored: true,
-          },
-        ],
-      },
-    })
-    .catch(async () => {
-      await options.client.tui
-        .showToast({
-          body: { title: "Usage Status", message: options.text, variant: "info" },
-        })
-        .catch(() => {})
-    })
-}
-
-function formatBar(remainingPercent: number): string {
-  const clamped = Math.max(0, Math.min(100, remainingPercent))
-  const size = 15
-  const filled = Math.round((clamped / 100) * size)
-  const empty = size - filled
-  return `${"█".repeat(filled)}${"░".repeat(empty)}`
-}
-
-function formatPlanType(planType: string): string {
-  return planType
-    .replace(/_/g, " ")
-    .split(" ")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ")
-}
-
-function formatResetTime(resetAt: number): string {
-  const now = Math.floor(Date.now() / 1000)
-  const diff = resetAt - now
-  if (diff <= 0) return "now"
-  if (diff < 60) return `${diff}s`
-  if (diff < 3600) return `${Math.ceil(diff / 60)}m`
-  if (diff < 86400) return `${Math.round(diff / 3600)}h`
-  return `${Math.round(diff / 86400)}d`
-}
-
-function formatResetSuffix(resetAt: number | null): string {
-  if (!resetAt) return ""
-  return ` (resets in ${formatResetTime(resetAt)})`
-}
-
-function formatResetSuffixISO(isoString: string): string {
-  try {
-    const resetAt = Math.floor(new Date(isoString).getTime() / 1000)
-    return ` (resets in ${formatResetTime(resetAt)})`
-  } catch {
-    return ""
-  }
-}
-
-function formatProxySnapshot(snapshot: UsageSnapshot): string[] {
-  const proxy = snapshot.proxyQuota
-  if (!proxy) return ["→ [proxy] No data"]
-
-  const lines: string[] = ["→ [Google] Mirrowel Proxy"]
-
-  for (const provider of proxy.providers) {
-    lines.push("")
-    lines.push(`  ${provider.name}:`)
-
-    for (const tierInfo of provider.tiers) {
-      const tierLabel = tierInfo.tier === "paid" ? "Paid" : "Free"
-      lines.push(`    ${tierLabel}:`)
-
-      for (const group of tierInfo.quotaGroups) {
-        const resetSuffix = group.resetTime ? formatResetSuffixISO(group.resetTime) : ""
-        const label = `${group.name}:`.padEnd(9)
-        lines.push(`      ${label} ${formatBar(group.remainingPct)} ${group.remaining}/${group.max}${resetSuffix}`)
-      }
-    }
-  }
-
-  return lines
-}
-
-function formatCopilotSnapshot(snapshot: UsageSnapshot): string[] {
-  const copilot = snapshot.copilotQuota
-  if (!copilot) return ["→ [copilot] No data"]
-
-  const lines: string[] = ["→ [GITHUB] Copilot"]
-  const resetSuffix = copilot.resetTime ? formatResetSuffixISO(copilot.resetTime) : ""
-  const totalLabel = copilot.total === -1 ? "∞" : copilot.total.toString()
-  const chatLabel = "Chat:".padEnd(13)
-
-  const chatRemaining = copilot.used
-  const chatPct = copilot.percentRemaining
-
-  lines.push(`  ${chatLabel} ${formatBar(chatPct)} ${chatRemaining}/${totalLabel}${resetSuffix}`)
-
-  if (copilot.completionsUsed !== undefined && copilot.completionsTotal !== undefined) {
-    const compLabel = "Completions:".padEnd(13)
-    const compPct =
-      copilot.completionsTotal > 0
-        ? Math.round((copilot.completionsUsed / copilot.completionsTotal) * 100)
-        : 0
-    lines.push(
-      `  ${compLabel} ${formatBar(compPct)} ${copilot.completionsUsed}/${copilot.completionsTotal}`,
-    )
-  }
-
-  return lines
-}
-
-function getAppDataPath(): string {
-  const home = homedir()
-  const plat = platform()
-  if (plat === "darwin") return join(home, ".config", "opencode")
-  if (plat === "win32") return join(process.env.APPDATA || join(home, "AppData", "Roaming"), "opencode")
-  return join(process.env.XDG_CONFIG_HOME || join(home, ".config"), "opencode")
-}
-
-function formatMissingSnapshot(snapshot: UsageSnapshot): string[] {
-  const provider = snapshot.provider
-  const label = provider === "codex" ? "codex" : provider === "proxy" ? "proxy" : "gh"
-  const configPath = join(getAppDataPath(), "usage-config.jsonc")
-  
-  let providerInstruction = ""
-  if (provider === "codex") {
-    providerInstruction = "if you dont have codex oauth, please set your usage-config.jsonc to openai: false"
-  } else if (provider === "proxy") {
-    providerInstruction = "if you are not running Mirrowel's proxy, please set your usage-config.jsonc to proxy: false"
-  } else if (provider === "copilot") {
-    providerInstruction = "if you are not running GitHub Copilot, please set your usage-config.jsonc to copilot: false"
-  }
-
-  return [
-    `→ [${provider.toUpperCase()}] - ${providerInstruction}`,
-    "",
-    `The file can be found in ${configPath}. Please read the comments in the file or visit the repo for the readme.`,
-    "",
-    "If you are seeing empty usages or errors, despite having everything set up correctly, please fire an issue at https://github.com/IgorWarzocha/opencode-usage-plugin/issues - thank you!",
-  ]
+  await options.client.session.prompt({
+    path: { id: options.sessionID },
+    body: { noReply: true, parts: [{ type: "text", text: options.text, ignored: true }] },
+  }).catch(async () => {
+    await options.client.tui.showToast({
+      body: { title: "Usage Status", message: options.text, variant: "info" },
+    }).catch(() => {})
+  })
 }
 
 function formatSnapshot(snapshot: UsageSnapshot): string[] {
-  if (snapshot.isMissing) {
-    return formatMissingSnapshot(snapshot)
-  }
-  
-  if (snapshot.provider === "proxy" && snapshot.proxyQuota) {
-    return formatProxySnapshot(snapshot)
-  }
-  if (snapshot.provider === "copilot" && snapshot.copilotQuota) {
-    return formatCopilotSnapshot(snapshot)
+  if (snapshot.isMissing) return formatMissingSnapshot(snapshot)
+  if (snapshot.provider === "proxy") return formatProxySnapshot(snapshot)
+  if (snapshot.provider === "copilot") return formatCopilotSnapshot(snapshot)
+
+  const plan = snapshot.planType ? ` (${snapshot.planType.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())})` : ""
+  const lines = [`→ [${snapshot.provider.toUpperCase()}]${plan}`]
+
+  const metrics = [
+    { label: "Hourly:", data: snapshot.primary },
+    { label: "Weekly:", data: snapshot.secondary },
+    { label: "Code Review:", data: snapshot.codeReview }
+  ]
+
+  let hasData = false
+  for (const m of metrics) {
+    if (m.data) {
+      const pct = 100 - m.data.usedPercent
+      lines.push(`  ${m.label.padEnd(13)} ${formatBar(pct)} ${pct.toFixed(0)}% left${formatResetSuffix(m.data.resetsAt)}`)
+      hasData = true
+    }
   }
 
-  const plan = snapshot.planType ? ` (${formatPlanType(snapshot.planType)})` : ""
-  const lines: string[] = [`→ [${snapshot.provider.toUpperCase()}]${plan}`]
-
-  const primary = snapshot.primary
-  if (primary) {
-    const remainingPct = 100 - primary.usedPercent
-    const label = "Hourly:".padEnd(13)
-    lines.push(
-      `  ${label} ${formatBar(remainingPct)} ${remainingPct.toFixed(0)}% left${formatResetSuffix(primary.resetsAt)}`,
-    )
-  }
-  const secondary = snapshot.secondary
-  if (secondary) {
-    const remainingPct = 100 - secondary.usedPercent
-    const label = "Weekly:".padEnd(13)
-    lines.push(
-      `  ${label} ${formatBar(remainingPct)} ${remainingPct.toFixed(0)}% left${formatResetSuffix(secondary.resetsAt)}`,
-    )
-  }
-  const codeReview = snapshot.codeReview
-  if (codeReview) {
-    const remainingPct = 100 - codeReview.usedPercent
-    const label = "Code Review:".padEnd(13)
-    lines.push(
-      `  ${label} ${formatBar(remainingPct)} ${remainingPct.toFixed(0)}% left${formatResetSuffix(codeReview.resetsAt)}`,
-    )
-  }
   if (snapshot.credits?.hasCredits) {
     lines.push(`  Credits:      ${snapshot.credits.balance}`)
+    hasData = true
   }
 
-  return lines
+  return hasData ? lines : formatMissingSnapshot(snapshot)
 }
 
 export async function renderUsageStatus(options: {
@@ -233,30 +78,14 @@ export async function renderUsageStatus(options: {
 }): Promise<void> {
   if (options.snapshots.length === 0) {
     const filterMsg = options.filter ? ` for "${options.filter}"` : ""
-    await sendStatusMessage({
-      client: options.client,
-      state: options.state,
-      sessionID: options.sessionID,
-      text: `▣ Usage | No data received${filterMsg}.`,
-    })
-    return
+    return sendStatusMessage({ ...options, text: `▣ Usage | No data received${filterMsg}.` })
   }
 
-  const lines: string[] = ["▣ Usage Status", ""]
-
-  options.snapshots.forEach((snapshot, index) => {
-    const snapshotLines = formatSnapshot(snapshot)
-    for (const line of snapshotLines) lines.push(line)
-    if (index < options.snapshots.length - 1) {
-      lines.push("")
-      lines.push("---")
-    }
+  const lines = ["▣ Usage Status", ""]
+  options.snapshots.forEach((s, i) => {
+    lines.push(...formatSnapshot(s))
+    if (i < options.snapshots.length - 1) lines.push("", "---")
   })
 
-  await sendStatusMessage({
-    client: options.client,
-    state: options.state,
-    sessionID: options.sessionID,
-    text: lines.join("\n"),
-  })
+  await sendStatusMessage({ ...options, text: lines.join("\n") })
 }

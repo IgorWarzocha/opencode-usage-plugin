@@ -11,19 +11,12 @@ export function getAppDataPath(): string {
   const plat = platform()
   const home = homedir()
 
-  if (plat === "darwin") {
-    return join(home, "Library", "Application Support", "opencode")
-  }
   if (plat === "win32") {
     return join(process.env.APPDATA || join(home, "AppData", "Roaming"), "opencode")
   }
 
-  const xdgData = process.env.XDG_DATA_HOME
-  if (xdgData) {
-    return join(xdgData, "opencode")
-  }
-
-  return join(home, ".local", "share", "opencode")
+  const dataHome = process.env.XDG_DATA_HOME || join(home, ".local", "share")
+  return join(dataHome, "opencode")
 }
 
 /**
@@ -35,22 +28,12 @@ export function getPossibleAuthPaths(): string[] {
   const home = homedir()
   const pathSet = new Set<string>()
 
-  if (plat === "darwin") {
-    // OpenCode on macOS uses Linux-style paths
-    pathSet.add(join(home, ".local", "share", "opencode", "auth.json"))
-    // Standard macOS location (fallback)
-    pathSet.add(join(home, "Library", "Application Support", "opencode", "auth.json"))
-    // Codex-specific auth (fallback)
-    pathSet.add(join(home, ".codex", "auth.json"))
-  } else if (plat === "win32") {
+  if (plat === "win32") {
     pathSet.add(join(process.env.APPDATA || join(home, "AppData", "Roaming"), "opencode", "auth.json"))
   } else {
     // Linux/other
-    const xdgData = process.env.XDG_DATA_HOME
-    if (xdgData) {
-      pathSet.add(join(xdgData, "opencode", "auth.json"))
-    }
-    pathSet.add(join(home, ".local", "share", "opencode", "auth.json"))
+    const dataHome = process.env.XDG_DATA_HOME || join(home, ".local", "share")
+    pathSet.add(join(dataHome, "opencode", "auth.json"))
     pathSet.add(join(home, ".codex", "auth.json"))
   }
 
