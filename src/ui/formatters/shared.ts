@@ -27,11 +27,13 @@ export function formatResetSuffixISO(iso: string): string {
 }
 
 function formatTimeDelta(at: number): string {
-  const diff = at - Math.floor(Date.now() / 1000)
+  const atSeconds = at > 1e11 ? Math.floor(at / 1000) : at
+  
+  const diff = atSeconds - Math.floor(Date.now() / 1000)
   if (diff <= 0) return "now"
   if (diff < 60) return `${diff}s`
   if (diff < 3600) return `${Math.ceil(diff / 60)}m`
-  if (diff < 84400) return `${Math.round(diff / 3600)}h`
+  if (diff < 86400) return `${Math.round(diff / 3600)}h`
   return `${Math.round(diff / 86400)}d`
 }
 

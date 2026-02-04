@@ -34,6 +34,9 @@ export async function loadUsageConfig(): Promise<UsageConfig> {
   // Leave empty if your proxy doesn't require authentication
   "apiKey": "VerysecretKey",
 
+  // Optional: Z.ai API endpoint (default: "https://api.z.ai")
+  "zaiEndpoint": "https://api.z.ai",
+
   // Optional: Request timeout in milliseconds (default: 10000)
   "timeout": 10000,
 
@@ -41,10 +44,12 @@ export async function loadUsageConfig(): Promise<UsageConfig> {
   "providers": {
     "openai": true,
     "proxy": true,
-    "copilot": true
+    "copilot": true,
+    "zai": true
   }
 }
 `
+
     await Bun.write(CONFIG_PATH, content)
     return {
       endpoint: "",
@@ -54,8 +59,10 @@ export async function loadUsageConfig(): Promise<UsageConfig> {
         openai: true,
         proxy: true,
         copilot: true,
+        zai: true,
       },
     }
+
   }
 
   try {

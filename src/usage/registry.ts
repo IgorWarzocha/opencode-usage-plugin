@@ -4,6 +4,7 @@
 
 import type { CodexAuth } from "../providers/codex"
 import type { CopilotAuthData } from "../providers/copilot/types"
+import type { ZaiAuth } from "../providers/zai/types"
 
 export type AuthEntry = {
   type?: string
@@ -19,6 +20,7 @@ export type AuthRecord = Record<string, AuthEntry>
 type ProviderAuthEntry =
   | { providerID: "codex"; auth: CodexAuth }
   | { providerID: "copilot"; auth: CopilotAuthData }
+  | { providerID: "zai-coding-plan"; auth: ZaiAuth }
 
 type ProviderDescriptor = {
   id: ProviderAuthEntry["providerID"]
@@ -44,6 +46,14 @@ const providerDescriptors: ProviderDescriptor[] = [
     buildAuth: (entry) => ({
       access: entry.access,
       refresh: entry.refresh,
+    }),
+  },
+  {
+    id: "zai-coding-plan",
+    authKeys: ["zai-coding-plan", "zai", "glm"],
+    requiresOAuth: false,
+    buildAuth: (entry) => ({
+      key: entry.key || entry.access || "",
     }),
   },
 ]

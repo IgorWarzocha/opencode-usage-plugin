@@ -9,7 +9,7 @@ import { loadUsageConfig } from "./config"
 import { loadMergedAuths } from "./auth/loader"
 import { resolveProviderAuths } from "./registry"
 
-const CORE_PROVIDERS = ["codex", "proxy", "copilot"]
+const CORE_PROVIDERS = ["codex", "proxy", "copilot", "zai-coding-plan"]
 
 export async function fetchUsageSnapshots(filter?: string): Promise<UsageSnapshot[]> {
   const target = resolveFilter(filter)
@@ -18,7 +18,8 @@ export async function fetchUsageSnapshots(filter?: string): Promise<UsageSnapsho
   
   const isEnabled = (id: string) => {
     if (id === "codex") return toggles.openai !== false
-    return (toggles as any)[id] !== false
+    if (id === "zai-coding-plan") return toggles.zai !== false
+    return (toggles as Record<string, boolean>)[id] !== false
   }
 
   const { auths, codexDiagnostics } = await loadMergedAuths()
@@ -60,7 +61,8 @@ function resolveFilter(f?: string): string | undefined {
   const aliases: Record<string, string> = { 
     codex: "codex", openai: "codex", gpt: "codex", 
     proxy: "proxy", agy: "proxy", gemini: "proxy",
-    copilot: "copilot", github: "copilot" 
+    copilot: "copilot", github: "copilot",
+    zai: "zai-coding-plan", glm: "zai-coding-plan"
   }
   return f ? aliases[f.toLowerCase().trim()] : undefined
 }
@@ -68,6 +70,7 @@ function resolveFilter(f?: string): string | undefined {
 export function resolveProviderFilter(filter?: string): string | undefined {
   return resolveFilter(filter)
 }
+
 
 function appendMissingStates(
   snaps: UsageSnapshot[], 

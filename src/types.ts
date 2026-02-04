@@ -69,15 +69,38 @@ export interface ProxyQuota {
 export interface UsageConfig {
   endpoint?: string
   apiKey?: string
+  zaiEndpoint?: string
   timeout?: number
   providers?: {
     openai?: boolean
     proxy?: boolean
     copilot?: boolean
+    zai?: boolean
   }
   modelGroups?: {
     showAll?: boolean
     displayNames?: Record<string, string>
+  }
+}
+
+export interface ZaiQuota {
+  limits: Array<{
+    type: string
+    usage: number
+    currentValue: number
+    remaining: number
+    percentage: number
+    nextResetTime?: number
+    usageDetails?: Array<{ modelCode: string; usage: number }>
+  }>
+  modelUsage?: {
+    totalModelCallCount: number
+    totalTokensUsage: number
+  }
+  toolUsage?: {
+    totalNetworkSearchCount: number
+    totalWebReadMcpCount: number
+    totalZreadMcpCount: number
   }
 }
 
@@ -91,6 +114,7 @@ export interface UsageSnapshot {
   credits: CreditsSnapshot | null
   proxyQuota?: ProxyQuota
   copilotQuota?: CopilotQuota
+  zaiQuota?: ZaiQuota
   updatedAt: number
   isMissing?: boolean
   missingReason?: string
