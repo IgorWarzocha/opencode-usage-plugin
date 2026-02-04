@@ -1,4 +1,4 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": ["@howaboua/create-opencode-plugin@latest"]
+  "plugin": ["@howaboua/opencode-usage-plugin@latest"]
 }
