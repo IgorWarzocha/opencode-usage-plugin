@@ -26,9 +26,18 @@ export async function loadUsageConfig(): Promise<UsageConfig> {
 
   if (!(await file.exists())) {
     const content = `{
-  "endpoint": "",
-  "apiKey": "",
+  // REQUIRED: Proxy server endpoint (e.g., "http://localhost:8000")
+  // Leave empty ONLY if you don't use the proxy
+  "endpoint": "http://localhost:8000",
+
+  // REQUIRED: API key for proxy auth (if your proxy requires it)
+  // Leave empty if your proxy doesn't require authentication
+  "apiKey": "your-key-here",
+
+  // Optional: Request timeout in milliseconds (default: 10000)
   "timeout": 10000,
+
+  // Optional: Show/hide providers in /usage output
   "providers": {
     "openai": true,
     "proxy": true,
