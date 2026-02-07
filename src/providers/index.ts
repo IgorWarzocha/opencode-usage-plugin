@@ -3,16 +3,19 @@ import { CodexProvider } from "./codex"
 import { ProxyProvider } from "./proxy"
 import { CopilotProvider } from "./copilot"
 import { ZaiProvider } from "./zai"
+import { OpenRouterProvider } from "./openrouter"
 
 export const providers: Record<string, UsageProvider<unknown>> = {
   [CodexProvider.id]: CodexProvider as UsageProvider<unknown>,
   [ProxyProvider.id]: ProxyProvider as UsageProvider<unknown>,
   [CopilotProvider.id]: CopilotProvider as UsageProvider<unknown>,
   [ZaiProvider.id]: ZaiProvider as UsageProvider<unknown>,
+  [OpenRouterProvider.id]: OpenRouterProvider as UsageProvider<unknown>,
 }
 
 export { CodexProvider } from "./codex"
 export { ProxyProvider } from "./proxy"
 export { CopilotProvider } from "./copilot"
 export { ZaiProvider } from "./zai"
+export { OpenRouterProvider } from "./openrouter"
 export type { UsageProvider } from "./base"

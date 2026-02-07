@@ -76,6 +76,7 @@ export interface UsageConfig {
     proxy?: boolean
     copilot?: boolean
     zai?: boolean
+    openrouter?: boolean
   }
   modelGroups?: {
     showAll?: boolean
@@ -104,6 +105,16 @@ export interface ZaiQuota {
   }
 }
 
+export interface OpenRouterQuota {
+  limit: number
+  usage: number
+  limitRemaining: number
+  usageDaily: number
+  usageWeekly: number
+  usageMonthly: number
+  isFreeTier: boolean
+}
+
 export interface UsageSnapshot {
   timestamp: number
   provider: string
@@ -115,6 +126,7 @@ export interface UsageSnapshot {
   proxyQuota?: ProxyQuota
   copilotQuota?: CopilotQuota
   zaiQuota?: ZaiQuota
+  openrouterQuota?: OpenRouterQuota
   updatedAt: number
   isMissing?: boolean
   missingReason?: string

@@ -9,6 +9,7 @@ import type { UsageState } from "../state"
 import { formatProxySnapshot } from "./formatters/proxy"
 import { formatCopilotSnapshot } from "./formatters/copilot"
 import { formatZaiSnapshot } from "./formatters/zai"
+import { formatOpenRouterSnapshot } from "./formatters/openrouter"
 import { formatBar, formatResetSuffix, formatMissingSnapshot } from "./formatters/shared"
 
 type UsageClient = PluginInput["client"]
@@ -44,6 +45,7 @@ function formatSnapshot(snapshot: UsageSnapshot): string[] {
   if (snapshot.provider === "proxy") return formatProxySnapshot(snapshot)
   if (snapshot.provider === "copilot") return formatCopilotSnapshot(snapshot)
   if (snapshot.provider === "zai-coding-plan") return formatZaiSnapshot(snapshot)
+  if (snapshot.provider === "openrouter") return formatOpenRouterSnapshot(snapshot)
 
   const plan = snapshot.planType ? ` (${snapshot.planType.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())})` : ""
   const lines = [`→ [${snapshot.provider.toUpperCase()}]${plan}`]

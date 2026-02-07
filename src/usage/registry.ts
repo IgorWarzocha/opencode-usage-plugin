@@ -5,6 +5,7 @@
 import type { CodexAuth } from "../providers/codex"
 import type { CopilotAuthData } from "../providers/copilot/types"
 import type { ZaiAuth } from "../providers/zai/types"
+import type { OpenRouterAuth } from "../providers/openrouter/types"
 
 export type AuthEntry = {
   type?: string
@@ -21,6 +22,7 @@ type ProviderAuthEntry =
   | { providerID: "codex"; auth: CodexAuth }
   | { providerID: "copilot"; auth: CopilotAuthData }
   | { providerID: "zai-coding-plan"; auth: ZaiAuth }
+  | { providerID: "openrouter"; auth: OpenRouterAuth }
 
 type ProviderDescriptor = {
   id: ProviderAuthEntry["providerID"]
@@ -51,6 +53,14 @@ const providerDescriptors: ProviderDescriptor[] = [
   {
     id: "zai-coding-plan",
     authKeys: ["zai-coding-plan", "zai", "glm"],
+    requiresOAuth: false,
+    buildAuth: (entry) => ({
+      key: entry.key || entry.access || "",
+    }),
+  },
+  {
+    id: "openrouter",
+    authKeys: ["openrouter", "or"],
     requiresOAuth: false,
     buildAuth: (entry) => ({
       key: entry.key || entry.access || "",
