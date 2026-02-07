@@ -230,16 +230,19 @@ function aggregateByProvider(provider: Provider, config: UsageConfig | null): Pr
   }
 
   if (aggregated.length > 0) {
+    const getTierGroupKey = (tier: "paid" | "free", groupName: string) => `${tier}::${groupName}`
     const resetLookup = new Map<string, string | null>()
-    for (const tierInfo of Object.values(tiers)) {
+    for (const [tierName, tierInfo] of Object.entries(tiers) as Array<["paid" | "free", Map<string, ProxyQuotaGroup>]>) {
       for (const group of tierInfo.values()) {
-        resetLookup.set(group.name, pickPreferredResetTime(resetLookup.get(group.name), group.resetTime))
+        const key = getTierGroupKey(tierName, group.name)
+        resetLookup.set(key, pickPreferredResetTime(resetLookup.get(key), group.resetTime))
       }
     }
 
     for (const tier of aggregated) {
       for (const group of tier.quotaGroups) {
-        group.resetTime = pickPreferredResetTime(group.resetTime, resetLookup.get(group.name))
+        const key = getTierGroupKey(tier.tier, group.name)
+        group.resetTime = pickPreferredResetTime(group.resetTime, resetLookup.get(key))
       }
     }
 
