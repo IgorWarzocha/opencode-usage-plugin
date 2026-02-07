@@ -9,21 +9,41 @@ import {
 } from "./types"
 
 export async function fetchOpenRouterUsage(auth: OpenRouterAuth): Promise<OpenRouterAuthResponse> {
-  const url = "https://openrouter.ai/api/v1/key"
+  const urls = [
+    "https://openrouter.ai/api/v1/key",
+    "https://openrouter.ai/api/v1/auth/key",
+  ]
 
-  const response = await fetch(url, {
-    headers: {
-      "Authorization": `Bearer ${auth.key}`,
-      "Content-Type": "application/json",
-    },
-  })
+  let lastError = "Unknown OpenRouter API error"
+  for (const url of urls) {
+    const response = await fetch(url, {
+      headers: {
+        "Authorization": `Bearer ${auth.key}`,
+        "Content-Type": "application/json",
+      },
+    }).catch(() => null)
 
-  if (!response.ok) {
-    throw new Error(`OpenRouter API failed: ${response.status} ${await response.text()}`)
+    if (!response) {
+      lastError = `OpenRouter API failed: network error for ${url}`
+      continue
+    }
+    if (!response.ok) {
+      lastError = `OpenRouter API failed: ${response.status} ${await response.text()}`
+      continue
+    }
+
+    const data = await response.json().catch(() => null)
+    if (!data) {
+      lastError = "Invalid OpenRouter response: empty JSON body"
+      continue
+    }
+    const parsed = openRouterAuthResponseSchema.safeParse(data)
+    if (!parsed.success) {
+      lastError = "Invalid OpenRouter response structure"
+      continue
+    }
+    return parsed.data
   }
 
-  const data = await response.json()
-  const parsed = openRouterAuthResponseSchema.safeParse(data)
-  if (!parsed.success) throw new Error("Invalid OpenRouter response structure")
-  return parsed.data
+  throw new Error(lastError)
 }
