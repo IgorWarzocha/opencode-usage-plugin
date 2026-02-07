@@ -5,6 +5,7 @@ Track AI provider rate limits and quotas in real-time.
 ## Features
 
 - **Live rate limits** – See Codex/OpenAI hourly/weekly limits at a glance
+- **Anthropic subscription limits** – Track Claude OAuth windows (5h, 7d, Sonnet/Opus/cowork tiers)
 - **Proxy quota stats** – Monitor Mirrowel Proxy credentials and tier usage
 - **Copilot usage** – Track GitHub Copilot chat + completions quotas
 - **Z.ai usage** – Track GLM Coding Plan 5-hour token quota and monthly tool quota
@@ -52,6 +53,7 @@ The plugin creates a default config file on first run at:
   // Optional: Show/hide providers in /usage output
   "providers": {
     "openai": true,
+    "anthropic": true,
     "proxy": true,
     "copilot": true,
     "zai": true
@@ -111,6 +113,8 @@ Copilot is detected from either of these locations:
 
 ```
 /usage codex
+/usage anthropic
+/usage claude
 /usage proxy
 /usage copilot
 /usage zai
@@ -128,6 +132,7 @@ Copilot is detected from either of these locations:
 | Provider | Source |
 |----------|--------|
 | **Codex / OpenAI** | Auth tokens + `/wham/usage` endpoint |
+| **Anthropic Claude** | OAuth profile + `/api/oauth/usage` windows |
 | **Mirrowel Proxy** | Local `/v1/quota-stats` endpoint |
 | **GitHub Copilot** | GitHub internal usage APIs |
 | **Z.ai GLM Coding Plan** | `chat.z.ai` auth + Z.ai usage APIs |
@@ -145,6 +150,7 @@ Copilot is detected from either of these locations:
 - For Codex: Ensure you have valid auth tokens
 - For Copilot: Check token file locations in Configuration section above
 - For Z.ai: Ensure your OpenCode auth includes `chat.z.ai` credentials
+- For Anthropic: Ensure Claude OAuth credentials are available (`anthropic` in auth.json)
 
 **Config file not found**
 - The plugin auto-creates `usage-config.jsonc` on first run

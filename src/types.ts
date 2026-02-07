@@ -9,6 +9,8 @@ export const PlanTypes = [
   "plus",
   "pro",
   "max",
+  "max_5x",
+  "max_20x",
   "free_workspace",
   "team",
   "business",
@@ -107,15 +109,25 @@ export interface ZaiQuota {
 }
 
 export interface AnthropicQuota {
-  subscriptionType: string | null
-  fiveHour?: {
+  limits: Array<{
+    key: string
+    label: string
     utilization: number
     resetsAt: string | null
-  }
-  sevenDay?: {
-    utilization: number
-    resetsAt: string | null
-  }
+  }>
+  extraUsage: {
+    isEnabled: boolean
+    monthlyLimit: string | null
+    usedCredits: string | null
+    utilization: number | null
+  } | null
+  subscription: {
+    organizationType: string | null
+    rateLimitTier: string | null
+    subscriptionStatus: string | null
+    hasClaudeMax: boolean
+    hasClaudePro: boolean
+  } | null
 }
 
 export interface UsageSnapshot {

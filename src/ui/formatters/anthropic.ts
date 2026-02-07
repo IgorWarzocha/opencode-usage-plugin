@@ -1,34 +1,46 @@
-/**
- * Formats Anthropic usage snapshots.
- * Handles 5-hour and 7-day subscription utilization.
- */
-
 import type { UsageSnapshot } from "../../types"
-import { formatBar, formatResetSuffixISO, formatMissingSnapshot } from "./shared"
+import { formatBar, formatMissingSnapshot, formatResetSuffixISO } from "./shared"
+
+function toTitleCase(value: string): string {
+  return value.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+function formatExtraUsage(extra: NonNullable<UsageSnapshot["anthropicQuota"]>["extraUsage"]): string[] {
+  if (!extra?.isEnabled) return []
+
+  const lines = [
+    `  Extra Usage:   ${extra.utilization !== null ? `${extra.utilization.toFixed(0)}% used` : "enabled"}`,
+  ]
+
+  if (extra.usedCredits || extra.monthlyLimit) {
+    lines.push(`  Credits:       ${extra.usedCredits ?? "-"} / ${extra.monthlyLimit ?? "-"}`)
+  }
+
+  return lines
+}
 
 export function formatAnthropicSnapshot(snapshot: UsageSnapshot): string[] {
-  const anthropic = snapshot.anthropicQuota
-  if (!anthropic) return formatMissingSnapshot(snapshot)
+  const quota = snapshot.anthropicQuota
+  if (!quota) return formatMissingSnapshot(snapshot)
 
-  const plan = snapshot.planType 
-    ? ` (${snapshot.planType.toUpperCase()})` 
-    : ""
+  const plan = snapshot.planType ? ` (${toTitleCase(snapshot.planType)})` : ""
   const lines = [`→ [ANTHROPIC]${plan}`]
 
-  if (anthropic.fiveHour) {
-    const reset = anthropic.fiveHour.resetsAt ? formatResetSuffixISO(anthropic.fiveHour.resetsAt) : ""
-    const pctRemaining = 100 - anthropic.fiveHour.utilization
-    lines.push(`  ${"5-Hour:".padEnd(13)} ${formatBar(pctRemaining)} ${anthropic.fiveHour.utilization}% used${reset}`)
+  if (quota.subscription?.rateLimitTier) {
+    lines.push(`  Tier:          ${quota.subscription.rateLimitTier}`)
   }
 
-  if (anthropic.sevenDay) {
-    const reset = anthropic.sevenDay.resetsAt ? formatResetSuffixISO(anthropic.sevenDay.resetsAt) : ""
-    const pctRemaining = 100 - anthropic.sevenDay.utilization
-    lines.push(`  ${"7-Day:".padEnd(13)} ${formatBar(pctRemaining)} ${anthropic.sevenDay.utilization}% used${reset}`)
+  for (const limit of quota.limits) {
+    const leftPercent = Math.max(0, Math.min(100, 100 - limit.utilization))
+    lines.push(
+      `  ${`${limit.label}:`.padEnd(14)} ${formatBar(leftPercent)} ${leftPercent.toFixed(0)}% left${limit.resetsAt ? formatResetSuffixISO(limit.resetsAt) : ""}`,
+    )
   }
 
-  if (snapshot.credits?.hasCredits) {
-    lines.push(`  ${"Credits:".padEnd(13)} ${snapshot.credits.balance}`)
+  lines.push(...formatExtraUsage(quota.extraUsage))
+
+  if (quota.limits.length === 0 && !quota.extraUsage?.isEnabled) {
+    return formatMissingSnapshot(snapshot)
   }
 
   return lines
