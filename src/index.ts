@@ -18,6 +18,7 @@ export const UsagePlugin: Plugin = async ({ client }) => {
     state.availableProviders.codex = usageConfig?.providers?.openai !== false
     state.availableProviders.proxy = usageConfig?.providers?.proxy !== false
     state.availableProviders.copilot = usageConfig?.providers?.copilot !== false
+    state.availableProviders.anthropic = usageConfig?.providers?.anthropic !== false
   } catch (err) {}
 
   async function sendStatusMessage(sessionID: string, text: string): Promise<void> {

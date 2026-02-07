@@ -8,6 +8,7 @@ export const PlanTypes = [
   "go",
   "plus",
   "pro",
+  "max",
   "free_workspace",
   "team",
   "business",
@@ -71,12 +72,13 @@ export interface UsageConfig {
   apiKey?: string
   zaiEndpoint?: string
   timeout?: number
-  providers?: {
-    openai?: boolean
-    proxy?: boolean
-    copilot?: boolean
-    zai?: boolean
-  }
+    providers?: {
+      openai?: boolean
+      proxy?: boolean
+      copilot?: boolean
+      zai?: boolean
+      anthropic?: boolean
+    }
   modelGroups?: {
     showAll?: boolean
     displayNames?: Record<string, string>
@@ -104,6 +106,18 @@ export interface ZaiQuota {
   }
 }
 
+export interface AnthropicQuota {
+  subscriptionType: string | null
+  fiveHour?: {
+    utilization: number
+    resetsAt: string | null
+  }
+  sevenDay?: {
+    utilization: number
+    resetsAt: string | null
+  }
+}
+
 export interface UsageSnapshot {
   timestamp: number
   provider: string
@@ -115,6 +129,7 @@ export interface UsageSnapshot {
   proxyQuota?: ProxyQuota
   copilotQuota?: CopilotQuota
   zaiQuota?: ZaiQuota
+  anthropicQuota?: AnthropicQuota
   updatedAt: number
   isMissing?: boolean
   missingReason?: string
