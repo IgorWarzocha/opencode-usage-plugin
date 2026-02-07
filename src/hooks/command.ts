@@ -29,7 +29,7 @@ export function commandHooks(options: {
       config.command ??= {}
       config.command["usage"] = {
         template: "/usage",
-        description: "Show API usage and rate limits (codex/proxy or all)",
+        description: "Show API usage and rate limits (anthropic/codex/proxy/copilot/zai)",
       }
     },
 
@@ -58,6 +58,7 @@ export function commandHooks(options: {
       const filteredSnapshots = snapshots.filter(s => {
         if (targetProvider) return true
         if (s.provider === "codex") return options.state.availableProviders.codex
+        if (s.provider === "anthropic") return options.state.availableProviders.anthropic
         if (s.provider === "proxy") return options.state.availableProviders.proxy
         if (s.provider === "copilot") return options.state.availableProviders.copilot
         return true

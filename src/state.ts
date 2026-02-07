@@ -11,6 +11,7 @@ export type UsageState = {
     codex: boolean
     proxy: boolean
     copilot: boolean
+    anthropic: boolean
   }
 }
 
@@ -21,6 +22,7 @@ export function createUsageState(): UsageState {
       codex: false,
       proxy: false,
       copilot: false,
+      anthropic: false,
     },
   }
 }

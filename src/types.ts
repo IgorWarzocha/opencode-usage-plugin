@@ -8,6 +8,9 @@ export const PlanTypes = [
   "go",
   "plus",
   "pro",
+  "max",
+  "max_5x",
+  "max_20x",
   "free_workspace",
   "team",
   "business",
@@ -71,12 +74,13 @@ export interface UsageConfig {
   apiKey?: string
   zaiEndpoint?: string
   timeout?: number
-  providers?: {
-    openai?: boolean
-    proxy?: boolean
-    copilot?: boolean
-    zai?: boolean
-  }
+    providers?: {
+      openai?: boolean
+      proxy?: boolean
+      copilot?: boolean
+      zai?: boolean
+      anthropic?: boolean
+    }
   modelGroups?: {
     showAll?: boolean
     displayNames?: Record<string, string>
@@ -104,6 +108,28 @@ export interface ZaiQuota {
   }
 }
 
+export interface AnthropicQuota {
+  limits: Array<{
+    key: string
+    label: string
+    utilization: number
+    resetsAt: string | null
+  }>
+  extraUsage: {
+    isEnabled: boolean
+    monthlyLimit: string | null
+    usedCredits: string | null
+    utilization: number | null
+  } | null
+  subscription: {
+    organizationType: string | null
+    rateLimitTier: string | null
+    subscriptionStatus: string | null
+    hasClaudeMax: boolean
+    hasClaudePro: boolean
+  } | null
+}
+
 export interface UsageSnapshot {
   timestamp: number
   provider: string
@@ -115,6 +141,7 @@ export interface UsageSnapshot {
   proxyQuota?: ProxyQuota
   copilotQuota?: CopilotQuota
   zaiQuota?: ZaiQuota
+  anthropicQuota?: AnthropicQuota
   updatedAt: number
   isMissing?: boolean
   missingReason?: string

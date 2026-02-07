@@ -1,6 +1,6 @@
 {
   "name": "@howaboua/opencode-usage-plugin",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "opencode plugin for tracking AI provider usage, rate limits, and quotas",
   "type": "module",
   "main": "dist/index.js",
