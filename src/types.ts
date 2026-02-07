@@ -80,6 +80,7 @@ export interface UsageConfig {
       copilot?: boolean
       zai?: boolean
       anthropic?: boolean
+      openrouter?: boolean
     }
   modelGroups?: {
     showAll?: boolean
@@ -130,6 +131,15 @@ export interface AnthropicQuota {
   } | null
 }
 
+export interface OpenRouterQuota {
+  limit: number
+  usage: number
+  limitRemaining: number
+  usageDaily: number
+  usageWeekly: number
+  usageMonthly: number
+  isFreeTier: boolean
+}
 export interface UsageSnapshot {
   timestamp: number
   provider: string
@@ -142,6 +152,7 @@ export interface UsageSnapshot {
   copilotQuota?: CopilotQuota
   zaiQuota?: ZaiQuota
   anthropicQuota?: AnthropicQuota
+  openrouterQuota?: OpenRouterQuota
   updatedAt: number
   isMissing?: boolean
   missingReason?: string

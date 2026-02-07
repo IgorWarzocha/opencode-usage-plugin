@@ -9,7 +9,7 @@ import { loadUsageConfig } from "./config"
 import { loadMergedAuths } from "./auth/loader"
 import { resolveProviderAuths } from "./registry"
 
-const CORE_PROVIDERS = ["codex", "proxy", "copilot", "zai-coding-plan", "anthropic"]
+const CORE_PROVIDERS = ["codex", "proxy", "copilot", "zai-coding-plan", "anthropic", "openrouter"]
 
 export async function fetchUsageSnapshots(filter?: string): Promise<UsageSnapshot[]> {
   const target = resolveFilter(filter)
@@ -19,6 +19,7 @@ export async function fetchUsageSnapshots(filter?: string): Promise<UsageSnapsho
   const isEnabled = (id: string) => {
     if (id === "codex") return toggles.openai !== false
     if (id === "zai-coding-plan") return toggles.zai !== false
+    if (id === "openrouter") return toggles.openrouter !== false
     return (toggles as Record<string, boolean>)[id] !== false
   }
 
@@ -43,9 +44,9 @@ export async function fetchUsageSnapshots(filter?: string): Promise<UsageSnapsho
       const provider = providers[id]
       if (provider?.fetchUsage) {
         fetches.push(provider.fetchUsage(undefined).then(s => {
-          if (s) { 
+          if (s) {
             snapshotsMap.set(id, s)
-            fetched.add(id) 
+            fetched.add(id)
           }
         }).catch(() => {}))
       }
@@ -58,12 +59,13 @@ export async function fetchUsageSnapshots(filter?: string): Promise<UsageSnapsho
 }
 
 function resolveFilter(f?: string): string | undefined {
-  const aliases: Record<string, string> = { 
-    codex: "codex", openai: "codex", gpt: "codex", 
+  const aliases: Record<string, string> = {
+    codex: "codex", openai: "codex", gpt: "codex",
     proxy: "proxy", agy: "proxy", gemini: "proxy",
     copilot: "copilot", github: "copilot",
     zai: "zai-coding-plan", glm: "zai-coding-plan",
-    anthropic: "anthropic", claude: "anthropic"
+    anthropic: "anthropic", claude: "anthropic",
+    openrouter: "openrouter", or: "openrouter"
   }
   return f ? aliases[f.toLowerCase().trim()] : undefined
 }

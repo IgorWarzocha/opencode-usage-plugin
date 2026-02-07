@@ -57,7 +57,8 @@ export function formatMissingSnapshot(snapshot: UsageSnapshot): string[] {
     codex: "if you dont have codex oauth, please set your usage-config.jsonc to openai: false",
     proxy: "check your usage-config.jsonc. Default: endpoint http://localhost:8000, apiKey VerysecretKey. If you changed these during proxy setup, update your config to match. Or set proxy: false to disable.",
     copilot: "if you are not running GitHub Copilot, please set your usage-config.jsonc to copilot: false",
-    anthropic: "if you are not using Claude Code with a subscription, please set your usage-config.jsonc to anthropic: false"
+    anthropic: "if you are not using Claude Code with a subscription, please set your usage-config.jsonc to anthropic: false",
+    openrouter: "please check your OpenRouter API key in your auth configuration or set openrouter: false in usage-config.jsonc to disable."
   }
 
   const lines = [`→ [${provider.toUpperCase()}] - ${instructions[provider] || ""}`]
