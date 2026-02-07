@@ -75,6 +75,27 @@ function normalizeTier(tier?: string): "paid" | "free" {
   return "free"
 }
 
+function pickPreferredResetTime(current?: string | null, incoming?: string | null): string | null {
+  if (!incoming) return current ?? null
+  if (!current) return incoming
+
+  const now = Date.now()
+  const currentTs = new Date(current).getTime()
+  const incomingTs = new Date(incoming).getTime()
+
+  const currentFuture = currentTs > now
+  const incomingFuture = incomingTs > now
+
+  if (currentFuture && incomingFuture) {
+    return incomingTs < currentTs ? incoming : current
+  }
+
+  if (incomingFuture) return incoming
+  if (currentFuture) return current
+
+  return incomingTs > currentTs ? incoming : current
+}
+
 function parseQuotaGroupsFromAggregation(
   quotaGroups: Record<string, ModelGroupAggregation> | undefined,
   config: UsageConfig | null,
@@ -179,10 +200,10 @@ function parseQuotaGroupsFromCredential(
 }
 
 function aggregateByProvider(provider: Provider, config: UsageConfig | null): ProxyTierInfo[] {
-  // Try aggregated quota groups first
-  if (provider.quota_groups && Object.keys(provider.quota_groups).length > 0) {
-    return parseQuotaGroupsFromAggregation(provider.quota_groups, config)
-  }
+  const aggregated =
+    provider.quota_groups && Object.keys(provider.quota_groups).length > 0
+      ? parseQuotaGroupsFromAggregation(provider.quota_groups, config)
+      : []
 
   // Fallback to manual aggregation of credentials
   const tiers: Record<"paid" | "free", Map<string, ProxyQuotaGroup>> = {
@@ -200,14 +221,32 @@ function aggregateByProvider(provider: Provider, config: UsageConfig | null): Pr
         if (existing) {
           existing.remaining += group.remaining
           existing.max += group.max
-          if (group.resetTime && (!existing.resetTime || new Date(group.resetTime) > new Date(existing.resetTime))) {
-            existing.resetTime = group.resetTime
-          }
+          existing.resetTime = pickPreferredResetTime(existing.resetTime, group.resetTime)
         } else {
           tiers[tier].set(group.name, { ...group })
         }
       }
     }
+  }
+
+  if (aggregated.length > 0) {
+    const getTierGroupKey = (tier: "paid" | "free", groupName: string) => `${tier}::${groupName}`
+    const resetLookup = new Map<string, string | null>()
+    for (const [tierName, tierInfo] of Object.entries(tiers) as Array<["paid" | "free", Map<string, ProxyQuotaGroup>]>) {
+      for (const group of tierInfo.values()) {
+        const key = getTierGroupKey(tierName, group.name)
+        resetLookup.set(key, pickPreferredResetTime(resetLookup.get(key), group.resetTime))
+      }
+    }
+
+    for (const tier of aggregated) {
+      for (const group of tier.quotaGroups) {
+        const key = getTierGroupKey(tier.tier, group.name)
+        group.resetTime = pickPreferredResetTime(group.resetTime, resetLookup.get(key))
+      }
+    }
+
+    return aggregated
   }
 
   for (const tierGroups of Object.values(tiers)) {
