@@ -29,7 +29,7 @@ export function commandHooks(options: {
       config.command ??= {}
       config.command["usage"] = {
         template: "/usage",
-        description: "Show API usage and rate limits (anthropic/codex/proxy/copilot/zai)",
+        description: "Show API usage and rate limits (anthropic/codex/proxy/copilot/zai/openrouter)",
       }
     },
 
@@ -48,12 +48,14 @@ export function commandHooks(options: {
         throw new Error("__USAGE_SUPPORT_HANDLED__")
       }
 
-      const filter = args || undefined
-      const targetProvider = resolveProviderFilter(filter)
+      const parts = args ? args.split(/\s+/).filter(Boolean) : []
+      const providerArg = parts[0]
+      const openrouterKeyName = parts.length > 1 ? parts.slice(1).join(" ") : undefined
+      const targetProvider = resolveProviderFilter(providerArg)
 
-      let effectiveFilter = targetProvider ? filter : undefined
+      let effectiveFilter = targetProvider ? providerArg : undefined
 
-      const snapshots = await fetchUsageSnapshots(effectiveFilter)
+      const snapshots = await fetchUsageSnapshots(effectiveFilter, targetProvider === "openrouter" ? openrouterKeyName : undefined)
 
       const filteredSnapshots = snapshots.filter(s => {
         if (targetProvider) return true

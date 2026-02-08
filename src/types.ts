@@ -86,6 +86,11 @@ export interface UsageConfig {
     showAll?: boolean
     displayNames?: Record<string, string>
   }
+  openrouterKeys?: Array<{
+    name: string
+    key: string
+    enabled?: boolean
+  }>
 }
 
 export interface ZaiQuota {
@@ -132,6 +137,7 @@ export interface AnthropicQuota {
 }
 
 export interface OpenRouterQuota {
+  keyName?: string | null
   limit: number | null
   usage: number
   limitRemaining: number | null

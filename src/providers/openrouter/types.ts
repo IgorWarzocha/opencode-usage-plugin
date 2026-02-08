@@ -6,6 +6,7 @@ import z from "zod"
 
 export interface OpenRouterAuth {
   key: string
+  keyName?: string
 }
 
 export const openRouterAuthResponseSchema = z.object({

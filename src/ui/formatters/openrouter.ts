@@ -9,7 +9,8 @@ export function formatOpenRouterSnapshot(snapshot: UsageSnapshot): string[] {
   const or = snapshot.openrouterQuota
   if (!or) return formatMissingSnapshot(snapshot)
 
-  const lines = ["→ [OPENROUTER]"]
+  const label = or.keyName ? `: ${or.keyName}` : ""
+  const lines = [`→ [OPENROUTER${label}]`]
 
   if (or.limit === null) {
     lines.push(`  ${"Credit:".padEnd(13)} Unlimited`)
