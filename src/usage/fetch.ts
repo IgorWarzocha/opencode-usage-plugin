@@ -7,12 +7,13 @@ import type { UsageSnapshot } from "../types"
 import { providers } from "../providers"
 import { loadUsageConfig } from "./config"
 import { loadMergedAuths } from "./auth/loader"
-import { resolveProviderAuths } from "./registry"
+import { resolveProviderAuthsWithConfig } from "./registry"
 
 const CORE_PROVIDERS = ["codex", "proxy", "copilot", "zai-coding-plan", "anthropic", "openrouter"]
 
-export async function fetchUsageSnapshots(filter?: string): Promise<UsageSnapshot[]> {
+export async function fetchUsageSnapshots(filter?: string, openrouterKeyName?: string): Promise<UsageSnapshot[]> {
   const target = resolveFilter(filter)
+  const normalizedOpenRouterKey = openrouterKeyName?.trim().toLowerCase()
   const config = await loadUsageConfig().catch(() => null)
   const toggles = config?.providers ?? {}
   
@@ -24,16 +25,20 @@ export async function fetchUsageSnapshots(filter?: string): Promise<UsageSnapsho
   }
 
   const { auths, codexDiagnostics } = await loadMergedAuths()
-  const entries = resolveProviderAuths(auths, null)
+  const entries = resolveProviderAuthsWithConfig(auths, null, config)
   const snapshotsMap = new Map<string, UsageSnapshot>()
   const fetched = new Set<string>()
 
   const fetches = entries
+    .filter(e => {
+      if (e.providerID !== "openrouter" || !normalizedOpenRouterKey) return true
+      return e.auth.keyName?.toLowerCase() === normalizedOpenRouterKey
+    })
     .filter(e => (!target || e.providerID === target) && isEnabled(e.providerID))
     .map(async e => {
       const snap = await providers[e.providerID]?.fetchUsage?.(e.auth).catch(() => null)
       if (snap) { 
-        snapshotsMap.set(e.providerID, snap)
+        snapshotsMap.set(e.entryID, snap)
         fetched.add(e.providerID) 
       }
     })

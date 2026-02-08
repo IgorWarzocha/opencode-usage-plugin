@@ -48,7 +48,13 @@ export async function loadUsageConfig(): Promise<UsageConfig> {
     "zai": true,
     "anthropic": true,
     "openrouter": true
-  }
+  },
+
+  // Optional: Multiple named OpenRouter API keys for /usage openrouter <key_name>
+  // "openrouterKeys": [
+  //   { "name": "work", "key": "sk-or-v1-..." },
+  //   { "name": "personal", "key": "sk-or-v1-...", "enabled": true }
+  // ]
 }
 `
 
