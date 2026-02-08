@@ -7,6 +7,7 @@ import type { CopilotAuthData } from "../providers/copilot/types"
 import type { ZaiAuth } from "../providers/zai/types"
 import type { OpenRouterAuth } from "../providers/openrouter/types"
 import type { UsageConfig } from "../types"
+import { resolveOpenRouterAuths } from "../providers/openrouter/auth-resolver"
 
 export type AuthEntry = {
   type?: string
@@ -24,6 +25,8 @@ type ProviderAuthEntry =
   | { providerID: "copilot"; entryID: string; auth: CopilotAuthData }
   | { providerID: "zai-coding-plan"; entryID: string; auth: ZaiAuth }
   | { providerID: "openrouter"; entryID: string; auth: OpenRouterAuth }
+
+export type ResolvedProviderAuthEntry = ProviderAuthEntry
 
 type ProviderDescriptor = {
   id: ProviderAuthEntry["providerID"]
@@ -93,39 +96,4 @@ export function resolveProviderAuthsWithConfig(
   const baseEntries = resolveProviderAuths(auths, usageToken).filter(e => e.providerID !== "openrouter")
   const openRouterEntries = resolveOpenRouterAuths(auths, config)
   return [...baseEntries, ...openRouterEntries]
-}
-
-function resolveOpenRouterAuths(auths: AuthRecord, config: UsageConfig | null): ProviderAuthEntry[] {
-  const entries: ProviderAuthEntry[] = []
-  const seenKeys = new Set<string>()
-
-  const configuredKeys = Array.isArray(config?.openrouterKeys) ? config.openrouterKeys : []
-  for (const configured of configuredKeys) {
-    const key = configured?.key?.trim()
-    if (!key || seenKeys.has(key)) continue
-    const rawName = configured?.name?.trim()
-    const name = rawName || `key-${entries.length + 1}`
-    if (configured.enabled === false) continue
-    seenKeys.add(key)
-    entries.push({
-      providerID: "openrouter",
-      entryID: `openrouter:${name}`,
-      auth: { key, keyName: name },
-    })
-  }
-
-  for (const authKey of ["openrouter", "or"]) {
-    const auth = auths[authKey]
-    const key = (auth?.key || auth?.access || "").trim()
-    if (!key || seenKeys.has(key)) continue
-    seenKeys.add(key)
-    entries.push({
-      providerID: "openrouter",
-      entryID: "openrouter",
-      auth: { key, keyName: "default" },
-    })
-    break
-  }
-
-  return entries
 }

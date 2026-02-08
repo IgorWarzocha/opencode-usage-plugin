@@ -8,6 +8,9 @@ import { providers } from "../providers"
 import { loadUsageConfig } from "./config"
 import { loadMergedAuths } from "./auth/loader"
 import { resolveProviderAuthsWithConfig } from "./registry"
+import type { ResolvedProviderAuthEntry } from "./registry"
+
+type OpenRouterEntry = Extract<ResolvedProviderAuthEntry, { providerID: "openrouter" }>
 
 const CORE_PROVIDERS = ["codex", "proxy", "copilot", "zai-coding-plan", "anthropic", "openrouter"]
 
@@ -28,18 +31,22 @@ export async function fetchUsageSnapshots(filter?: string, openrouterKeyName?: s
   const entries = resolveProviderAuthsWithConfig(auths, null, config)
   const snapshotsMap = new Map<string, UsageSnapshot>()
   const fetched = new Set<string>()
+  const fetchedOpenRouterEntryIDs = new Set<string>()
 
-  const fetches = entries
+  const filteredEntries = entries
     .filter(e => {
       if (e.providerID !== "openrouter" || !normalizedOpenRouterKey) return true
       return e.auth.keyName?.toLowerCase() === normalizedOpenRouterKey
     })
     .filter(e => (!target || e.providerID === target) && isEnabled(e.providerID))
+
+  const fetches = filteredEntries
     .map(async e => {
       const snap = await providers[e.providerID]?.fetchUsage?.(e.auth).catch(() => null)
       if (snap) { 
         snapshotsMap.set(e.entryID, snap)
-        fetched.add(e.providerID) 
+        if (e.providerID === "openrouter") fetchedOpenRouterEntryIDs.add(e.entryID)
+        else fetched.add(e.providerID)
       }
     })
 
@@ -60,7 +67,15 @@ export async function fetchUsageSnapshots(filter?: string, openrouterKeyName?: s
 
   await Promise.race([Promise.all(fetches), new Promise(r => setTimeout(r, 5000))])
   const snapshots = Array.from(snapshotsMap.values())
-  return appendMissingStates(snapshots, fetched, isEnabled, target, codexDiagnostics)
+  return appendMissingStates(
+    snapshots,
+    fetched,
+    isEnabled,
+    target,
+    codexDiagnostics,
+    filteredEntries.filter((e): e is OpenRouterEntry => e.providerID === "openrouter"),
+    fetchedOpenRouterEntryIDs,
+  )
 }
 
 function resolveFilter(f?: string): string | undefined {
@@ -85,9 +100,12 @@ function appendMissingStates(
   fetched: Set<string>, 
   isEnabled: (id: string) => boolean,
   target?: string,
-  diagnostics?: string[]
+  diagnostics?: string[],
+  openRouterEntries: OpenRouterEntry[] = [],
+  fetchedOpenRouterEntryIDs: Set<string> = new Set(),
 ): UsageSnapshot[] {
   for (const id of CORE_PROVIDERS) {
+    if (id === "openrouter" && openRouterEntries.length > 0) continue
     if (isEnabled(id) && !fetched.has(id) && (!target || target === id)) {
       snaps.push({
         timestamp: Date.now(),
@@ -104,6 +122,24 @@ function appendMissingStates(
       })
     }
   }
+
+  for (const entry of openRouterEntries) {
+    if (fetchedOpenRouterEntryIDs.has(entry.entryID)) continue
+    const keyName = entry.auth.keyName ?? "unknown"
+    snaps.push({
+      timestamp: Date.now(),
+      provider: "openrouter",
+      planType: null,
+      primary: null,
+      secondary: null,
+      codeReview: null,
+      credits: null,
+      updatedAt: Date.now(),
+      isMissing: true,
+      missingReason: `OpenRouter key \"${keyName}\" failed to fetch`,
+    })
+  }
+
   return snaps
 }
 
