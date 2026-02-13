@@ -24,14 +24,18 @@ export function formatZaiSnapshot(snapshot: UsageSnapshot): string[] {
     lines.push(`  ${formatBar(remainingPct)} ${remainingPct.toFixed(0)}% left${reset}`)
     
     const unit = isTokens ? "Tokens" : "Times"
-    lines.push(`  Used: ${limit.currentValue.toLocaleString()} / ${limit.usage.toLocaleString()} ${unit}`)
+    const current = (limit.currentValue ?? 0).toLocaleString()
+    const total = (limit.usage ?? 0).toLocaleString()
+    lines.push(`  Used: ${current} / ${total} ${unit}`)
     lines.push("")
   }
 
   if (zai.modelUsage) {
     lines.push(`  24h Activity:`)
-    lines.push(`    Tokens:       ${zai.modelUsage.totalTokensUsage.toLocaleString()}`)
-    lines.push(`    Calls:        ${zai.modelUsage.totalModelCallCount.toLocaleString()}`)
+    const tokens = (zai.modelUsage.totalTokensUsage ?? 0).toLocaleString()
+    const calls = (zai.modelUsage.totalModelCallCount ?? 0).toLocaleString()
+    lines.push(`    Tokens:       ${tokens}`)
+    lines.push(`    Calls:        ${calls}`)
   }
 
   return lines
