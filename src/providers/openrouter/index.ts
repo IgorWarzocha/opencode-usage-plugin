@@ -45,6 +45,7 @@ export const OpenRouterProvider: UsageProvider<OpenRouterAuth> = {
         },
         updatedAt: now,
         openrouterQuota: {
+          keyName: auth.keyName ?? data.data.label ?? null,
           limit: data.data.limit,
           usage: data.data.usage,
           limitRemaining: data.data.limit_remaining,
